@@ -6,7 +6,9 @@
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "dependencies": {},
+  "dependencies": {
+    "three": "^0.108.0"
+  },
   "devDependencies": {
     "@storybook/addon-actions": "^5.1.11",
     "@storybook/addon-info": "^5.1.11",
