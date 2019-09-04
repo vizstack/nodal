@@ -1,2 +1,2 @@
-# nodal
-Modular, customizable graph layout library.
+# Nodal
+Modularly build a gradient-based graph layout engine.
