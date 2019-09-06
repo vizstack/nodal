@@ -1,6 +1,6 @@
 import { Vector2 } from 'three';
 
-/** 
+/**
  * A `Point` in 2D space is the base entity manipulated by the `Optimizer`. All higher-level
  * entities (like simple and compound nodes, ports, etc.) are represented as a collection of points.
  */
@@ -38,17 +38,17 @@ export class BasicOptimizer extends Optimizer {
     }
 
     public step(gradients: Gradient[]): void {
-        gradients.forEach((grad) => grad.point.add(grad.grad.clone().multiplyScalar(this.lr)))
+        gradients.forEach((grad) => grad.point.add(grad.grad.clone().multiplyScalar(this.lr)));
     }
 }
 
-
-type TrustRegionOptimizerConfig = {
-    lrInitial: number,
-    adaption: number,
-    wait: number,
-    lrMax: number,
-    lrMin: number,
+/** Configuration options for a `TrustRegionOptimizer`. */
+export type TrustRegionOptimizerConfig = {
+    lrInitial: number;
+    adaption: number;
+    wait: number;
+    lrMax: number;
+    lrMin: number;
 };
 
 /**
@@ -56,24 +56,24 @@ type TrustRegionOptimizerConfig = {
  * on whether there is improvement on an energy function (lower than before).
  */
 export class TrustRegionOptimizer extends Optimizer {
-    private _config: TrustRegionOptimizerConfig;
-    private _numStepsImproved: number = 0;
-    private _prevEnergy: number = Number.MAX_VALUE;
-    private _lr: number;
+    protected _config: TrustRegionOptimizerConfig;
+    protected _numStepsImproved: number = 0;
+    protected _prevEnergy: number = Number.MAX_VALUE;
+    protected _lr: number;
 
     constructor(config: Partial<TrustRegionOptimizerConfig> = {}) {
         super();
         const { lrInitial = 1, adaption = 0.9, wait = 5, lrMax = 1, lrMin = 0.01 } = config;
-        if(adaption > 1) throw Error('Must specify value of `adaption` <= 1');
-        if(wait < 0) throw Error('Must specify value of `wait` >= 0');
+        if (adaption > 1) throw Error('Must specify value of `adaption` <= 1');
+        if (wait < 0) throw Error('Must specify value of `wait` >= 0');
         this._config = { lrInitial, adaption, wait, lrMax, lrMin };
         this._lr = lrInitial;
     }
 
     public update(currEnergy: number) {
-        if(currEnergy < this._prevEnergy) {
+        if (currEnergy < this._prevEnergy) {
             this._numStepsImproved += 1;
-            if(this._numStepsImproved >= this._config.wait) {
+            if (this._numStepsImproved >= this._config.wait) {
                 // Steady improvement, so increase learning rate.
                 this._numStepsImproved = 0;
                 this._lr /= this._config.adaption;
@@ -86,6 +86,6 @@ export class TrustRegionOptimizer extends Optimizer {
     }
 
     public step(gradients: Gradient[]): void {
-        gradients.forEach((grad) => grad.point.add(grad.grad.clone().multiplyScalar(this._lr)))
+        gradients.forEach((grad) => grad.point.add(grad.grad.clone().multiplyScalar(this._lr)));
     }
 }

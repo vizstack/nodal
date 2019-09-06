@@ -10,6 +10,7 @@
     "three": "^0.108.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.5.5",
     "@storybook/addon-actions": "^5.1.11",
     "@storybook/addon-info": "^5.1.11",
     "@storybook/addon-links": "^5.1.11",
@@ -41,7 +42,7 @@
     "start": "npm run start-storybook",
     "test": "jest",
     "prebuild": "npm run clean",
-    "build": "tsc && copyfiles -u 1 ./**/*.css ./**/*.woff2 dist/",
+    "build": "tsc",
     "clean": "rimraf dist/*",
     "repl": "ts-node",
     "format": "prettier --config ./.prettierrc --write \"{src,stories}/**/*.{js,jsx,ts,tsx}\"",
