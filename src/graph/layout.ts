@@ -43,8 +43,8 @@ export class ForceConstraintLayout extends Layout {
     protected steps: number;
     constructor(
         protected elems: Storage,
-        protected forceIterFn: (elems: Storage) => Gradient[],
-        protected constraintIterFn: (elems: Storage) => Gradient[],
+        protected forceIterFn: (elems: Storage, step: number, iter: number) => Gradient[],
+        protected constraintIterFn: (elems: Storage, step: number, iter: number) => Gradient[],
         config: Partial<ForceConstraintLayoutConfig> = {},
     ) {
         super();
@@ -52,8 +52,8 @@ export class ForceConstraintLayout extends Layout {
             numSteps = 10,
             numForceIters = 1,
             numConstraintIters = 10,
-            // forceOptimizer = new TrustRegionOptimizer(),
-            forceOptimizer = new BasicOptimizer(1),
+            // forceOptimizer = new TrustRegionOptimizer({ lrInitial: 0.1, lrMax: 0.1 }),
+            forceOptimizer = new BasicOptimizer(0.1),
             constraintOptimizer = new BasicOptimizer(1),
             onStart = () => true,
             onStep = () => true,
@@ -77,8 +77,8 @@ export class ForceConstraintLayout extends Layout {
         const { onStart, onStep, onEnd } = this.config;
         if (!onStart(this.elems, this.steps)) return;
         while (this.steps < this.config.numSteps) {
-            this.step();
             this.steps += 1;
+            this.step();
             if (onStep(this.elems, this.steps) === false) {
                 // If break out early, do not trigger `onEnd`.
                 return;
@@ -95,13 +95,13 @@ export class ForceConstraintLayout extends Layout {
             constraintOptimizer,
         } = this.config;
 
-        for (let i = 0; i < numForceIters; i++) {
-            const forceGrads = this.forceIterFn(this.elems);
+        for (let i = 1; i <= numForceIters; i++) {
+            const forceGrads = this.forceIterFn(this.elems, this.steps, i);
             forceOptimizer.step(forceGrads);
         }
 
-        for (let j = 0; j < numConstraintIters; j++) {
-            const constraintGrads = this.constraintIterFn(this.elems);
+        for (let j = 1; j <= numConstraintIters; j++) {
+            const constraintGrads = this.constraintIterFn(this.elems, this.steps, j);
             constraintOptimizer.step(constraintGrads);
         }
     }

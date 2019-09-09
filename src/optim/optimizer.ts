@@ -1,25 +1,22 @@
 import { Vector2 } from 'three';
 
 /**
- * A `Point` in 2D space is the base entity manipulated by the `Optimizer`. All higher-level
+ * A `Vector` in 2D space is the base entity manipulated by the `Optimizer`. All higher-level
  * entities (like simple and compound nodes, ports, etc.) are represented as a collection of points.
  */
-export class Point extends Vector2 {}
+export class Vector extends Vector2 {}
 
 /**
- * A `Gradient` associates a `Point` to a gradient `Vector2` that the `Optimizer` uses to update
- * the point's location in space. A `Gradient` can act as a "soft" force or a "hard" constraint
- * depending on how aggressively the `Optimizer` enforces it (through the learning rate).
+ * A `Gradient` associates a point `Vector` to a gradient `Vector` that the `Optimizer` uses to
+ * update the point's location in space. A `Gradient` can act as a "soft" force or a "hard"
+ * constraint depending on how aggressively the `Optimizer` enforces it (through the learning rate).
  */
 export class Gradient {
-    public grad: Vector2;
-    constructor(public point: Point, dx: number = 0, dy: number = 0) {
-        this.grad = new Vector2(dx, dy);
-    }
+    constructor(public point: Vector, public grad: Vector) {}
 }
 
 /**
- * An `Optimizer` performs an update to a `Point` based on a `Gradient`. It uses *gradient ascent*,
+ * An `Optimizer` performs an update to a `Vector` based on a `Gradient`. It uses *gradient ascent*,
  * which means that the gradient vector should already point in the intended direction of update and
  * the update rule takes the form: `x = x + lr * grad`. This fits with the physical iterpretation
  * of a gradient as a "nudge" in a particular direction due to forces or constraints.
@@ -70,7 +67,7 @@ export class TrustRegionOptimizer extends Optimizer {
         this._lr = lrInitial;
     }
 
-    public update(currEnergy: number) {
+    private _update(currEnergy: number) {
         if (currEnergy < this._prevEnergy) {
             this._numStepsImproved += 1;
             if (this._numStepsImproved >= this._config.wait) {
@@ -86,6 +83,11 @@ export class TrustRegionOptimizer extends Optimizer {
     }
 
     public step(gradients: Gradient[]): void {
-        gradients.forEach((grad) => grad.point.add(grad.grad.clone().multiplyScalar(this._lr)));
+        let currEnergy: number = 0;
+        gradients.forEach((grad) => {
+            grad.point.add(grad.grad.clone().multiplyScalar(this._lr));
+            currEnergy += grad.grad.length();
+        });
+        this._update(currEnergy);
     }
 }
