@@ -23,19 +23,24 @@ export class Gradient {
  */
 export abstract class Optimizer {
     public abstract step(gradients: Gradient[]): void;
+    public abstract update(): void;
 }
 
 /**
- * A `BasicOptimizer` uses a fixed learning rate.
+ * A `BasicOptimizer` uses a fixed learning rate and decay factor.
  */
 export class BasicOptimizer extends Optimizer {
     // TODO: Momentum, shuffle.
-    constructor(private lr: number = 1) {
+    constructor(private lr: number = 1, private decay: number = 1) {
         super();
     }
 
-    public step(gradients: Gradient[]): void {
+    public step(gradients: Gradient[]) {
         gradients.forEach((grad) => grad.point.add(grad.grad.clone().multiplyScalar(this.lr)));
+    }
+
+    public update() {
+        this.lr = Math.max(this.lr * this.decay, 0.01);
     }
 }
 
@@ -56,6 +61,7 @@ export class TrustRegionOptimizer extends Optimizer {
     protected _config: TrustRegionOptimizerConfig;
     protected _numStepsImproved: number = 0;
     protected _prevEnergy: number = Number.MAX_VALUE;
+    protected _currEnergy: number = 0;
     protected _lr: number;
 
     constructor(config: Partial<TrustRegionOptimizerConfig> = {}) {
@@ -67,8 +73,18 @@ export class TrustRegionOptimizer extends Optimizer {
         this._lr = lrInitial;
     }
 
-    private _update(currEnergy: number) {
-        if (currEnergy < this._prevEnergy) {
+    public step(gradients: Gradient[]): void {
+        let energy: number = 0;
+        gradients.forEach((grad) => {
+            grad.point.add(grad.grad.clone().multiplyScalar(this._lr));
+            energy += grad.grad.length();
+        });
+        energy /= (gradients.length + 1);
+        this._currEnergy += energy;
+    }
+
+    public update() {
+        if (this._currEnergy < this._prevEnergy) {
             this._numStepsImproved += 1;
             if (this._numStepsImproved >= this._config.wait) {
                 // Steady improvement, so increase learning rate.
@@ -80,14 +96,10 @@ export class TrustRegionOptimizer extends Optimizer {
             this._numStepsImproved = 0;
             this._lr *= this._config.adaption;
         }
+        this._lr = Math.max(this._lr, this._config.lrMin);
+        this._lr = Math.min(this._lr, this._config.lrMax);
+        this._prevEnergy = this._currEnergy;
+        this._currEnergy = 0;
     }
 
-    public step(gradients: Gradient[]): void {
-        let currEnergy: number = 0;
-        gradients.forEach((grad) => {
-            grad.point.add(grad.grad.clone().multiplyScalar(this._lr));
-            currEnergy += grad.grad.length();
-        });
-        this._update(currEnergy);
-    }
 }

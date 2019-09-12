@@ -1,19 +1,123 @@
 import * as React from 'react';
-import { Node, Edge } from '../src/graph';
+import { Node, Edge, Storage, ForceConstraintLayout, NodeId } from '../src/graph';
 
 type GraphProps = {
-    nodes?: Iterable<Node>;
-    edges?: Iterable<Edge>;
-    bounds?: { x: number, X: number, y: number, Y: number, width: number, height: number };
+    storage: Storage;
+    layout: ForceConstraintLayout;
+
+    /** Whether to run animation during layout process. */
+    animated?: boolean;
+
+    /** Whether to allow mouse interaction.  */
+    interactive?: boolean;
 };
 
-export class Graph extends React.Component<GraphProps> {
+type GraphState = {
+    nodes: Iterable<Node>;
+    edges: Iterable<Edge>;
+    bounds: ReturnType<Storage['bounds']>;
+    drag?: {
+        node: Node,
+        origin: { x: number, y: number },
+        center: { x: number, y: number },
+        fixed: boolean,
+        bounds: ReturnType<Storage['bounds']>;
+    };
+};
+
+const kAnimationTick = 0;
+const kLayoutSteps = 250;
+
+export class Graph extends React.Component<GraphProps, GraphState> {
+    static defaultProps: Partial<GraphProps> = {
+        animated: false,
+        interactive: false,
+    };
+    constructor(props: GraphProps) {
+        super(props);
+        const { layout, storage, animated} = this.props;
+        this.state = {
+            nodes: storage.nodes(),
+            edges: storage.edges(),
+            bounds: storage.bounds(),
+            drag: undefined,
+        };
+        if(animated) layout.onStep((elems) => {
+            this.setState({
+                nodes: elems.nodes(),
+                edges: elems.edges(),
+                bounds: elems.bounds(),
+            });
+            setTimeout(() => layout.start(), kAnimationTick);
+            return false;
+        });
+        layout.onEnd((elems) => {
+            this.setState({
+                nodes: elems.nodes(),
+                edges: elems.edges(),
+                bounds: elems.bounds(),
+            });
+        });
+    }
+    componentDidMount() {
+        const { layout } = this.props;
+        layout.start();
+    }
+
+    onMouseDown = (node: Node, x: number, y: number) => {
+        if(!this.props.interactive) return;
+        if(this.state.drag !== undefined) this.onMouseUp();
+        this.setState((state) => ({ drag: {
+            node: node,
+            origin: { x, y },
+            center: { x: node.center.x, y: node.center.y },
+            fixed: node.fixed,
+            bounds: state.bounds,
+        } }));
+        node.fixed = true;
+        this.doLayout(kLayoutSteps);
+    }
+
+    onMouseUp = () => {
+        if(!this.props.interactive) return;
+        if(this.state.drag !== undefined) {
+            const { storage } = this.props;
+            const { node, fixed } = this.state.drag;
+            node.fixed = fixed;
+            this.setState({ drag: undefined });
+            this.setState({
+                nodes: storage.nodes(),
+                edges: storage.edges(),
+                bounds: storage.bounds(),
+            });
+        }
+    }
+
+    onMouseMove = (x: number, y: number) => {
+        if(!this.props.interactive) return;
+        if(this.state.drag !== undefined) {
+            const { node, origin, center } = this.state.drag;
+            node.center.set(x - origin.x + center.x, y - origin.y + center.y);
+            this.forceUpdate();
+        }
+    }
+
+    doLayout(steps: number) {
+        if(steps <= 0) return;
+        setTimeout(() => {
+            this.props.layout.step();
+            this.forceUpdate();
+            this.doLayout(steps-1);
+        }, 0);
+    }
+
     render() {
-        const { nodes = [], edges = [], bounds } = this.props;
-        const groupComponents = [];
+        const { nodes = [], edges = [], drag } = this.state;
+        const bounds = drag ? drag.bounds : this.state.bounds;
+        const compoundNodeComponents = [];
         for(let node of nodes) {
             if(node.children.length > 0) {
-                groupComponents.push(
+                compoundNodeComponents.push(
                     <g key={node.id} id={node.id}>
                         <rect
                             x={node.center.x - node.shape.width / 2}
@@ -39,10 +143,10 @@ export class Graph extends React.Component<GraphProps> {
             }
         }
 
-        const leafComponents = [];
+        const simpleNodeComponents = [];
         for(let node of nodes) {
             if(node.children.length == 0) {
-                leafComponents.push(
+                simpleNodeComponents.push(
                     <g key={node.id} id={node.id}>
                         <rect
                             x={node.center.x - node.shape.width / 2}
@@ -53,12 +157,15 @@ export class Graph extends React.Component<GraphProps> {
                             stroke={Color.white}
                             strokeWidth={1.5}
                             rx={4}
+                            onMouseDown={(e) => this.onMouseDown(node, e.clientX, e.clientY)}
                         />
                         <text x={node.center.x} y={node.center.y} textAnchor="middle" dominantBaseline="middle"
                             style={{
                                 fontFamily: '"Helvetica Neue", sans-serif',
                                 fontSize: '10',
                                 fill: Color.blue.l1,
+                                pointerEvents: 'none',
+                                userSelect: 'none',
                             }}>
                             {node.id.substring(1)}
                         </text>
@@ -89,10 +196,12 @@ export class Graph extends React.Component<GraphProps> {
                 viewBox={bounds ? `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}` : undefined}
                 width={bounds ? `${bounds.width}` : '100%'}
                 height={bounds ? `${bounds.height}` : '100%'}
+                onMouseMove={(e) => this.onMouseMove(e.clientX, e.clientY)}
+                onMouseUp={(e) => this.onMouseUp()}
             >
                 {edgeComponents}
-                {groupComponents}
-                {leafComponents}
+                {compoundNodeComponents}
+                {simpleNodeComponents}
             </svg>
         );
     }

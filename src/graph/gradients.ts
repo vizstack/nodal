@@ -36,7 +36,13 @@ export function constrainDistance(
     q: Vector,
     op: '=' | '>=' | '<=',
     distance: number,
-    { axis = undefined, masses = [1, 1] }: Partial<{ masses: [number, number], axis?: [number, number] }> = {},
+    {
+        axis = undefined,
+        masses = [1, 1]
+    }: Partial<{
+        masses: [number, number],
+        axis?: [number, number]
+    }> = {},
 ): Gradient[] {
     const pq = (new Vector()).subVectors(q, p);
     const v = axis ?
@@ -93,7 +99,11 @@ export function constrainOffset(
     op: '=' | '>=' | '<=',
     offset: number,
     direction: [number, number],
-    { masses = [1, 1] }: Partial<{ masses: [number, number] }> = {},
+    {
+        masses = [1, 1]
+    }: Partial<{
+        masses: [number, number]
+    }> = {},
 ): Gradient[] {
     const pq = (new Vector()).subVectors(q, p);
     const v = (new Vector(direction[0], direction[1])).normalize();
@@ -120,7 +130,7 @@ export function positionChildren(
 }
 
 const kPortSeparation: number = 10;
-const kPortMasses: [number, number] = [1e4, 1];
+const kPortMasses: [number, number] = [1e6, 1];
 
 export function positionPorts(
     u: Node,
@@ -238,36 +248,52 @@ export function positionGridSnap(u: Node): Gradient[] {
 }
 
 /**
- * Force between a pair of nodes, with magnitude `scalar * | || u - v || - shift | ^ power` and
- * directions pointing away from each other (when `scalar` is positive) or towards each other (when
- * `scalar` is negative). It is possible to specify a pair of different `scalar` values to apply to
- * each node individually.
+ * Force between a pair of nodes, with magnitude `scalar * | || u - v || - control | ^ power` and
+ * directions pointing away from each other (when `f` is positive) or towards each other (when
+ * `f` is negative), for `f = scalar * ( || u - v || - control )`. It is possible to specify a pair
+ * of different `scalar` values to apply to each node individually.
  */
 export function forcePairwisePower(
     u: Node,
     v: Node,
     {
         power = 2,
-        shift = 0,
+        control = 0,
         scalar = 1,
     }: Partial<{
         power: number,
-        shift: number,
+        control: number,
         scalar: number | [number, number],
     }> = {}
 ): Gradient[] {
     const vu = (new Vector()).subVectors(u.center, v.center);
-    let delta = vu.length() - shift;
+    const delta = vu.length() - control;
+    const sign = delta > 0 ? 1 : -1;
     const mag = Math.pow(Math.max(Math.abs(delta), 0.1), power);
     // By default pointing away: v->u to u so scalar[0] and u->v to v so scalar[1].
-    const mags = Array.isArray(scalar) ?
-        [mag * scalar[0], mag * scalar[1]] :
-        [mag * scalar, mag * scalar];
+    
+    if(!Array.isArray(scalar)) scalar = [scalar, scalar]
     vu.normalize();
-    const uv = vu.clone().negate();
-    vu.multiplyScalar(mags[0]);
-    uv.multiplyScalar(mags[1]);
+    const uv = vu.clone();
+    vu.multiplyScalar(mag * scalar[0] * sign);
+    uv.multiplyScalar(-mag * scalar[1] * sign);
     return [new Gradient(u.center, vu), new Gradient(v.center, uv)];
+}
+
+export function forcePairwise(
+    u: Node,
+    v: Node,
+    magnitude: number | [number, number]
+): Gradient[] {
+    if(!Array.isArray(magnitude)) magnitude = [magnitude, magnitude];
+    const vu = (new Vector()).subVectors(u.center, v.center).normalize();
+    const uv = vu.clone().negate();
+    vu.multiplyScalar(magnitude[0]);
+    uv.multiplyScalar(magnitude[1]);
+    const grads: Gradient[] = [];
+    if(!u.fixed) grads.push(new Gradient(u.center, vu));
+    if(!v.fixed) grads.push(new Gradient(v.center, uv));
+    return grads;
 }
 
 /**

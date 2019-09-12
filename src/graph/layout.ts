@@ -42,9 +42,9 @@ export class ForceConstraintLayout extends Layout {
     protected config: ForceConstraintLayoutConfig;
     protected steps: number;
     constructor(
-        protected elems: Storage,
-        protected forceIterFn: (elems: Storage, step: number, iter: number) => Gradient[],
-        protected constraintIterFn: (elems: Storage, step: number, iter: number) => Gradient[],
+        protected storage: Storage,
+        protected forceIterFn: (storage: Storage, step: number, iter: number) => IterableIterator<Gradient[]>,
+        protected constraintIterFn: (storage: Storage, step: number, iter: number) => IterableIterator<Gradient[]>,
         config: Partial<ForceConstraintLayoutConfig> = {},
     ) {
         super();
@@ -52,8 +52,8 @@ export class ForceConstraintLayout extends Layout {
             numSteps = 10,
             numForceIters = 1,
             numConstraintIters = 10,
-            // forceOptimizer = new TrustRegionOptimizer({ lrInitial: 0.1, lrMax: 0.1 }),
-            forceOptimizer = new BasicOptimizer(0.1),
+            // forceOptimizer = new TrustRegionOptimizer(),
+            forceOptimizer = new BasicOptimizer(1),
             constraintOptimizer = new BasicOptimizer(1),
             onStart = () => true,
             onStep = () => true,
@@ -75,34 +75,60 @@ export class ForceConstraintLayout extends Layout {
     // Manually stepping does not contribute to counter.
     public start() {
         const { onStart, onStep, onEnd } = this.config;
-        if (!onStart(this.elems, this.steps)) return;
+        if (!onStart(this.storage, this.steps)) return;
         while (this.steps < this.config.numSteps) {
             this.steps += 1;
-            this.step();
-            if (onStep(this.elems, this.steps) === false) {
+            if (this.step() === false) {
                 // If break out early, do not trigger `onEnd`.
                 return;
             }
         }
-        onEnd(this.elems, this.steps);
+        onEnd(this.storage, this.steps);
     }
 
-    public step() {
+    public step(): boolean {
         const {
             numForceIters,
             numConstraintIters,
             forceOptimizer,
             constraintOptimizer,
+            onStep,
         } = this.config;
 
         for (let i = 1; i <= numForceIters; i++) {
-            const forceGrads = this.forceIterFn(this.elems, this.steps, i);
-            forceOptimizer.step(forceGrads);
+            const forceGradGen = this.forceIterFn(this.storage, this.steps, i);
+            let forceGrads;
+            while(true) {
+                // Must use manual iteration, not for-of loop, in order to access return value.
+                forceGrads = forceGradGen.next();
+                if(forceGrads.value) forceOptimizer.step(forceGrads.value);
+                if(forceGrads.done) break;
+            }
+            forceOptimizer.update();
         }
 
         for (let j = 1; j <= numConstraintIters; j++) {
-            const constraintGrads = this.constraintIterFn(this.elems, this.steps, j);
-            constraintOptimizer.step(constraintGrads);
+            const constraintGradGen = this.constraintIterFn(this.storage, this.steps, j);
+            let constraintGrads;
+            while(true) {
+                constraintGrads = constraintGradGen.next();
+                if(constraintGrads.value) constraintOptimizer.step(constraintGrads.value);
+                if(constraintGrads.done) break;
+            }
+            constraintOptimizer.update();
         }
+
+        return onStep(this.storage, this.steps);
+    }
+
+    public onStart(onStart: ForceConstraintLayoutConfig['onStart']) {
+        this.config.onStart = onStart;
+    }
+
+    public onStep(onStep: ForceConstraintLayoutConfig['onStep']) {
+        this.config.onStep = onStep;
+    }
+    public onEnd(onEnd: ForceConstraintLayoutConfig['onEnd']) {
+        this.config.onEnd = onEnd;
     }
 }
