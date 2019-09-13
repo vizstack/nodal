@@ -10,6 +10,10 @@ type GraphProps = {
 
     /** Whether to allow mouse interaction.  */
     interactive?: boolean;
+
+    /** Function to specify color, as a string or an index into the default color palette. */
+    nodeColor?: (n: Node) => string | number,
+    edgeColor?: (e: Edge) => string | number,
 };
 
 type GraphState = {
@@ -114,6 +118,19 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     render() {
         const { nodes = [], edges = [], drag } = this.state;
         const bounds = drag ? drag.bounds : this.state.bounds;
+
+        const nodeColor = (n: Node) => {
+            if(!this.props.nodeColor) return Palette[0];  // Blue
+            const value = this.props.nodeColor(n);
+            return typeof value === 'number' ? Palette[value % Palette.length] : value;
+        }
+
+        const edgeColor = (e: Edge) => {
+            if(!this.props.edgeColor) return Palette[13];  // Gray
+            const value = this.props.edgeColor(e);
+            return typeof value === 'number' ? Palette[value % Palette.length] : value;
+        }
+
         const compoundNodeComponents = [];
         for(let node of nodes) {
             if(node.children.length > 0) {
@@ -124,7 +141,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                             y={node.center.y - node.shape.height / 2}
                             width={node.shape.width}
                             height={node.shape.height}
-                            fill={Color.blue.base}
+                            fill={nodeColor(node)}
                             stroke={Color.white}
                             strokeWidth={1.5}
                             rx={4}
@@ -133,8 +150,12 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                         <text x={node.center.x} y={node.center.y} textAnchor="middle" dominantBaseline="middle"
                             style={{
                                 fontFamily: '"Helvetica Neue", sans-serif',
+                                fontWeight: 'bold',
                                 fontSize: '10',
-                                fill: Color.blue.l1,
+                                fill: nodeColor(node),
+                                opacity: 1,
+                                pointerEvents: 'none',
+                                userSelect: 'none',
                             }}>
                             {node.id.substring(1)}
                         </text>
@@ -153,9 +174,9 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                             y={node.center.y - node.shape.height / 2}
                             width={node.shape.width}
                             height={node.shape.height}
-                            fill={Color.blue.base}
+                            fill={nodeColor(node)}
                             stroke={Color.white}
-                            strokeWidth={1.5}
+                            strokeWidth={1}
                             rx={4}
                             onMouseDown={(e) => this.onMouseDown(node, e.clientX, e.clientY)}
                         />
@@ -163,7 +184,8 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                             style={{
                                 fontFamily: '"Helvetica Neue", sans-serif',
                                 fontSize: '10',
-                                fill: Color.blue.l1,
+                                fill: Color.white,
+                                opacity: 0.75,
                                 pointerEvents: 'none',
                                 userSelect: 'none',
                             }}>
@@ -182,9 +204,9 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                         d={'M ' + edge.path.map(({ x, y }) => `${x} ${y}`).join(' L ')}
                         style={{
                             fill: 'none',
-                            stroke: Color.gray.d1,
-                            strokeWidth: 3,
-                            opacity: 0.8,
+                            stroke: edgeColor(edge),
+                            strokeWidth: 2,
+                            opacity: 0.75,
                         }}
                     />
                 </g>
@@ -217,3 +239,5 @@ const Color = {
     yellow: { l2: '#FFFCF4', l1: '#FDF3D7', base: '#F4CA64', d1: '#CAA53D', d2: '#8C6D1F' },
     red: { l2: '#FCE8E8', l1: '#F4AAAA', base: '#DC3030', d1: '#B82020', d2: '#881B1B' },
 };
+
+const Palette = ['#4E79A7', '#A0CBE8', '#F28E2B', '#FFBE7D', '#59A14F', '#8CD17D', '#B6992D', '#F1CE63', '#499894', '#86BCB6', '#E15759', '#FF9D9A', '#79706E', '#BAB0AC', '#D37295', '#FABFD2', '#B07AA1', '#D4A6C8', '#9D7660', '#D7B5A6'];

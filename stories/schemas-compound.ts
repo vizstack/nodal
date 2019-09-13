@@ -9,17 +9,17 @@ const kGraphCompound: {
 } = {
     nodesChildren: [],
     nodesParents: [
-        { id: 'p0', children: [] },
-        { id: 'p1', children: [] },
-        { id: 'p2', children: [] },
-        { id: 'p3', children: [] },
-        { id: 'p4', children: [] },
-        { id: 'p5', children: [] },
-        { id: 'p6', children: [] },
-        { id: 'p7', children: [] },
-        { id: 'p8', children: [] },
-        { id: 'p9', children: [] },
-        { id: 'p10', children: [] },
+        { id: 'p0', children: [], meta: { group: 0 } },
+        { id: 'p1', children: [], meta: { group: 1 } },
+        { id: 'p2', children: [], meta: { group: 2 } },
+        { id: 'p3', children: [], meta: { group: 3 } },
+        { id: 'p4', children: [], meta: { group: 4 } },
+        { id: 'p5', children: [], meta: { group: 5 } },
+        { id: 'p6', children: [], meta: { group: 6 } },
+        { id: 'p7', children: [], meta: { group: 7 } },
+        { id: 'p8', children: [], meta: { group: 8 } },
+        { id: 'p9', children: [], meta: { group: 9 } },
+        { id: 'p10', children: [], meta: { group: 10 } },
     ],
     edges: [],
 };
@@ -287,7 +287,7 @@ const edges = [
 ];
 
 parents.forEach((parent, child) => {
-    kGraphCompound.nodesChildren.push({ id: `n${child}`, shape: { width: kSize, height: kSize }, meta: { parent } });
+    kGraphCompound.nodesChildren.push({ id: `n${child}`, shape: { width: kSize, height: kSize }, meta: { group: parent } });
     kGraphCompound.nodesParents[parent].children!.push(`n${child}`)
 });
 

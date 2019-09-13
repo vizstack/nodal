@@ -18,6 +18,7 @@ import {
     forcePairwise,
     forceVector,
     fromSchema,
+    positionChildren,
     positionPorts,
     positionNoOverlap,
     constrainOffset,
@@ -40,7 +41,7 @@ storiesOf('force models', module)
         const attractive = number('attractive', 1);
         const layout = new ForceConstraintLayout(
             elems,
-            function* (elems, step) {
+            function* (elems) {
                 const visited: Set<Node> = new Set();
                 for(let u of elems.nodes()) {
                     // console.debug('node center', {
@@ -76,7 +77,7 @@ storiesOf('force models', module)
                     // });
                 }
             },
-            function* (elems, step, iter) {
+            function* (elems) {
                 for (let u of elems.nodes()) {
                     yield positionPorts(u);
                     // console.debug('ports', { step, iter,
@@ -98,13 +99,11 @@ storiesOf('force models', module)
         const elems = new StructuredStorage(nodes, edges);
         const numSteps = number('# timesteps', 100, { range: true, min: 0, max: 200, step: 1 });
         const repulsive = number('repulsive', 50);
-        const attractive = number('attractive', 0.2);
-        const compactness = number('group compactness', 0.2);
-
-
+        const attractive = number('attractive', 0.5);
+        const compactness = number('group compactness', 0.5);
         const layout = new ForceConstraintLayout(
             elems,
-            function* (elems, step) {
+            function* (elems) {
                 const visited: Set<Node> = new Set();
                 for(let u of elems.nodes()) {
                     visited.add(u);
@@ -130,44 +129,25 @@ storiesOf('force models', module)
                         );;
                 }
             },
-            function* (elems, step, iter) {
+            function* (elems, step) {
                 for (let u of elems.nodes()) {
-
-                    // Compute new group bounds, and
-                    if(u.children.length > 0) {
-                        const box = new Box2();
-                        u.children.forEach((child) => {
-                            box.expandByPoint(new Vector2(
-                                child.center.x - child.shape.width /2,
-                                child.center.y - child.shape.height/2,
-                            ));
-                            box.expandByPoint(new Vector2(
-                                child.center.x + child.shape.width /2,
-                                child.center.y + child.shape.height/2,
-                            ))
-                        });
-                        box.getCenter(u.center);
-                        const dims = new Vector2();
-                        box.getSize(dims);
-                        u.shape.width = dims.x;
-                        u.shape.height = dims.y;
+                    // Apply no-overlap to all siblings.
+                    if(step > 15) {
+                        for(let sibling of (elems as StructuredStorage).siblings(u)) {
+                            yield positionNoOverlap(u, sibling);
+                        }
                     }
 
+                    yield positionChildren(u);
                     yield positionPorts(u);
-                }
-
-                // Apply no-overlap to all siblings.
-                for (let u of elems.nodes()) {
-                    for(let sibling of (elems as StructuredStorage).siblings(u)) {
-                        yield positionNoOverlap(u, sibling);
-                    }
                 }
             },
             { numSteps, numConstraintIters: 3, forceOptimizer: new TrustRegionOptimizer({ lrInitial: 0.4, lrMax: 0.6, lrMin: 0.001 }) }
         );
 
         return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
+            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive
+            nodeColor={(n) => (n.meta && n.meta.group) || 0}/>
         );
     })
     .add('spring w/ simple nodes', () => {
@@ -179,7 +159,7 @@ storiesOf('force models', module)
         const idealLength = number('ideal length', 15);
         const layout = new ForceConstraintLayout(
             elems,
-            function* (elems, step) {
+            function* (elems) {
                 const visited: Set<Node> = new Set();
                 for(let u of elems.nodes()) {
                     // console.debug('node center', {
@@ -251,7 +231,7 @@ storiesOf('force models', module)
                     }
                 }
             },
-            function* (elems, step, iter) {
+            function* (elems, step) {
                 for (let u of elems.nodes()) {
                     yield positionPorts(u);
                     // console.debug('ports', { step, iter,
@@ -277,5 +257,83 @@ storiesOf('force models', module)
 
         return (
             <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
+        );
+    })
+    .add('spring w/ compound nodes', () => {
+        // const [nodes, edges] = fromSchema(kGraphFive.nodesEqual, kGraphFive.edgesAcyclic);
+        const [nodes, edges] = fromSchema([...kGraphCompound.nodesChildren, ...kGraphCompound.nodesParents], kGraphCompound.edges);
+        const elems = new StructuredStorage(nodes, edges);
+        const shortestPath = elems.shortestPaths();
+        const numSteps = number('# timesteps', 100, { range: true, min: 0, max: 200, step: 1 });
+        const idealLength = number('ideal length', 30);
+        const compactness = number('group compactness', 0.5);
+        const layout = new ForceConstraintLayout(
+            elems,
+            function* (elems) {
+                const visited: Set<Node> = new Set();
+                for(let u of elems.nodes()) {
+                    visited.add(u);
+                    // Compound nodes should pull children closer.
+                    if(u.children.length > 0) {
+                        for(let child of u.children) {
+                            yield forcePairwise(u, child, -compactness*(u.center.distanceTo(child.center)));
+                        };
+                    }
+                    for(let v of elems.nodes()) {
+                        if(visited.has(v)) continue;
+                        if(u.fixed && v.fixed) continue;
+                        const [wu, wv] = [u.fixed ? 0 : 1, v.fixed ? 0 : 1];
+
+                        // Spring force. Attempt to reach ideal distance between all pairs,
+                        // except unconnected pairs that are farther away than ideal.
+                        const uvPath = shortestPath(u, v);
+                        if(uvPath === undefined) continue; // Ignore disconnected components.
+                        const idealDistance = idealLength * uvPath;
+                        const actualDistance = u.center.distanceTo(v.center);
+                        if((elems as StructuredStorage).existsEdge(u, v, true)) {
+                            // Attractive force between edges if too far.
+                            if(actualDistance > idealLength) {
+                                const delta = actualDistance - idealLength;
+                                yield forcePairwise(u, v, [-wu*delta, -wv*delta]);
+                            }
+                        } else {
+                            // Repulsive force between node pairs if too close.
+                            if(actualDistance < idealDistance) {
+                                const delta = idealDistance - actualDistance;
+                                yield forcePairwise(u, v, [wu*delta, wv*delta]);
+                            }
+                        }
+                    }
+                }
+            },
+            function* (elems, step) {
+                for (let u of elems.nodes()) {
+                    // Apply no-overlap to all siblings.
+                    if(step > 20) {
+                        for(let sibling of (elems as StructuredStorage).siblings(u)) {
+                            yield positionNoOverlap(u, sibling);
+                        }
+                    }
+
+                    yield positionChildren(u);
+                    yield positionPorts(u);
+                }
+
+                // if(step > 10) {
+                //     for (let e of elems.edges()) {
+                //         yield constrainOffset(e.source.node.center, e.target.node.center, "=", 50, [0, 1], { masses: [e.source.node.fixed ? 1e9 : 1, e.target.node.fixed ? 1e9 : 1] });
+                //     }
+                // }
+
+                
+            },
+            { numSteps, numConstraintIters: 5, numForceIters: 5,
+                forceOptimizer: new TrustRegionOptimizer({ lrInitial: 0.4, lrMax: 0.8, lrMin: 0.001 })
+            }
+        );
+
+        return (
+            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive
+                nodeColor={(n) => (n.meta && n.meta.group) || 0} />
         );
     });

@@ -74,7 +74,7 @@ export class ForceConstraintLayout extends Layout {
 
     // Manually stepping does not contribute to counter.
     public start() {
-        const { onStart, onStep, onEnd } = this.config;
+        const { onStart, onEnd } = this.config;
         if (!onStart(this.storage, this.steps)) return;
         while (this.steps < this.config.numSteps) {
             this.steps += 1;

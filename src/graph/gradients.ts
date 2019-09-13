@@ -123,9 +123,28 @@ export function constrainOffset(
 
 export function positionChildren(
     u: Node,
-    compactness: number,
 ): Gradient[] {
-    // TODO
+    // TODO: Based on shape, which has different borders, give to shape to produce constraints.
+
+    // Compute new parent bounds.
+    if(u.children.length > 0) {
+        const box = new Box2();
+        u.children.forEach((child) => {
+            box.expandByPoint(new Vector(
+                child.center.x - child.shape.width /2,
+                child.center.y - child.shape.height/2,
+            ));
+            box.expandByPoint(new Vector(
+                child.center.x + child.shape.width /2,
+                child.center.y + child.shape.height/2,
+            ))
+        });
+        box.getCenter(u.center);
+        const dims = new Vector();
+        box.getSize(dims);
+        u.shape.width = dims.x;
+        u.shape.height = dims.y;
+    }
     return [];
 }
 
@@ -224,7 +243,23 @@ export function positionNoOverlap(u: Node, v: Node): Gradient[] {
     const ygrad = constrainDistance(u.center, v.center, ">=", (u.shape.height + v.shape.height)/2, {axis: [0, 1]});
     const xgradlen = xgrad.reduce((sum, grad) => sum + grad.grad.length(), 0);
     const ygradlen = ygrad.reduce((sum, grad) => sum + grad.grad.length(), 0);
-    return xgradlen < ygradlen ? xgrad : ygrad;
+    const shorter = xgradlen < ygradlen ? xgrad : ygrad;
+
+    // TODO: Hack that moves all children recursively.
+    function moveChildren(p: Node, grad: Vector) {
+        if(p.children.length > 0) {
+            p.children.forEach((c) => {
+                shorter.push(new Gradient(c.center, grad));
+                moveChildren(c, grad);
+            });
+        }
+    }
+    for(let grad of shorter) {
+        if(grad.point === u.center) moveChildren(u, grad.grad);
+        if(grad.point === v.center) moveChildren(v, grad.grad);
+    }
+
+    return shorter;
 }
 
 export function positionAlignment(u: Node, v: Node, direction: [number, number]): Gradient[] {
