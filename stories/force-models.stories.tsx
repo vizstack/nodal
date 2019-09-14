@@ -240,14 +240,6 @@ storiesOf('force models', module)
                     //     grads: grads[0].map(({ point, grad }) => ({ point: point.clone(), grad })),
                     // });
                 }
-
-                if(step > 10) {
-                    for (let e of elems.edges()) {
-                        yield constrainOffset(e.source.node.center, e.target.node.center, "=", 50, [0, 1], { masses: [e.source.node.fixed ? 1e9 : 1, e.target.node.fixed ? 1e9 : 1] });
-                    }
-                }
-
-                
             },
             { numSteps, numConstraintIters: 5, numForceIters: 5,
                 // forceOptimizer: new BasicOptimizer(0.8, 0.9)

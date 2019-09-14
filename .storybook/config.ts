@@ -9,6 +9,6 @@ addDecorator(withKnobs);
 // Automatically import all files ending in *.stories.tsx
 const req = require.context('../stories', true, /\.stories\.tsx$/);
 function loadStories() {
-  req.keys().forEach(req);
+  req.keys().sort().forEach(req);
 }
 configure(loadStories, module);

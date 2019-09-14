@@ -8,6 +8,7 @@ export const kGraphFive: {
     nodesNested: NodeSchema[],
     edgesAcyclic: EdgeSchema[],
     edgesCyclic: EdgeSchema[],
+    edgesTree: EdgeSchema[],
 } = {
     nodesEqual: [
         { id: 'n0', shape: { width: kSize, height: kSize } },
@@ -43,5 +44,11 @@ export const kGraphFive: {
         { id: 'e2->3', source: { id: 'n2' }, target: { id: 'n3' } },
         { id: 'e3->0', source: { id: 'n3' }, target: { id: 'n0' } },
         { id: 'e3->4', source: { id: 'n3' }, target: { id: 'n4' } },
-    ]
+    ],
+    edgesTree: [
+        { id: 'e0->1', source: { id: 'n0' }, target: { id: 'n1' } },
+        { id: 'e1->2', source: { id: 'n1' }, target: { id: 'n2' } },
+        { id: 'e2->3', source: { id: 'n2' }, target: { id: 'n3' } },
+        { id: 'e2->4', source: { id: 'n2' }, target: { id: 'n4' } },
+    ],
 };

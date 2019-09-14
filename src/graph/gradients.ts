@@ -52,8 +52,9 @@ export function constrainDistance(
     if(op === '>=' && current >= distance + kZeroThreshold) return [];
     if(op === '<=' && current <= distance - kZeroThreshold) return [];
     if(op === '=' && Math.abs(current - distance) <= kZeroThreshold) return [];
-    const delta = distance - current;
+    const delta = distance - current;  // Sign reflects whether should increase/decrease distance.
     if(!masses) masses = [1, 1];
+    if(pq.dot(v) < 0) v.negate(); 
     const gradq = v.clone().multiplyScalar(delta * masses[0] / (masses[0] + masses[1]));
     const gradp = v.clone().multiplyScalar(-delta * masses[1] / (masses[0] + masses[1]));
     
@@ -169,15 +170,6 @@ export function positionPorts(
         });
 
     Object.values(u.ports).forEach(({location, order, point}) => {
-        // grads.push(
-        //     constrainDistance(u.center, point, '>=', u.shape.height / 2, [0, 1], kPortMasses),
-        //     constrainDistance(u.center, point, '>=', u.shape.width / 2, [1, 0], kPortMasses),
-        //     constrainOffset(u.center, point, '<=', u.shape.height / 2, [0, 1], kPortMasses),
-        //     constrainOffset(u.center, point, '<=', u.shape.height / 2, [0, -1], kPortMasses),
-        //     constrainOffset(u.center, point, '<=', u.shape.width / 2, [1, 0], kPortMasses),
-        //     constrainOffset(u.center, point, '<=', u.shape.width / 2, [-1, 0], kPortMasses),
-        // );
-
         let portAxis: [number, number];
         switch(location) {
             case 'north':
@@ -245,7 +237,7 @@ export function positionNoOverlap(u: Node, v: Node): Gradient[] {
     const ygradlen = ygrad.reduce((sum, grad) => sum + grad.grad.length(), 0);
     const shorter = xgradlen < ygradlen ? xgrad : ygrad;
 
-    // TODO: Hack that moves all children recursively.
+    // Bump all descendants by gradient on root.
     function moveChildren(p: Node, grad: Vector) {
         if(p.children.length > 0) {
             p.children.forEach((c) => {

@@ -148,8 +148,9 @@ export function fromSchema(nodeSchemas: NodeSchema[], edgeSchemas: EdgeSchema[])
         if (port) {
             if(port in node.ports) {
                 point = node.ports[port].point;
+            } else {
+                throw Error(`Invalid ${type} port name: ${port}, ${type} ${nodeId}, edge ${edgeId}`);
             }
-            throw Error(`Invalid ${type} port name: ${port}, ${type} ${nodeId}, edge ${edgeId}`);
         } else {
             const rand = seedrandom(`${edgeId}-${type}`);
             port = `_${edgeId}`;
