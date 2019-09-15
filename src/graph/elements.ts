@@ -180,3 +180,26 @@ export function fromSchema(nodeSchemas: NodeSchema[], edgeSchemas: EdgeSchema[])
     return [nodes, edges];
 }
 
+// TODO: Allow taking any Iterator<Node>, Iterator<Edge>.
+export function toSchema(nodes: Node[], edges: Edge[]): [NodeSchema[], EdgeSchema[]] {
+    const nodeSchema = nodes.map((node) => ({
+        id: node.id,
+        center: { x: node.center.x, y: node.center.y },
+        shape: node.shape,
+        fixed: node.fixed,
+        children: node.children.map((child) => child.id),
+        ports: Object.fromEntries(
+            Object.entries(node.ports).map(([name, { location, order, point }]) => [name, { location, order, point: { x: point.x, y: point.y }}]),
+        ),
+        meta: node.meta,
+    }));
+    const edgeSchema = edges.map((edge) => ({
+        id: edge.id,
+        source: { id: edge.source.id, port: edge.source.port },
+        target: { id: edge.target.id, port: edge.target.port },
+        path: edge.path.map((point) => ({ x: point.x, y: point.y })),
+        meta: edge.meta,
+    }));
+
+    return [nodeSchema, edgeSchema]
+}

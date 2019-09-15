@@ -13,6 +13,7 @@ import {
     constrainDistance,
     forcePairwisePower,
     forcePairwise,
+    forcePairwiseNodes,
     forceVector,
     positionChildren,
     positionPorts,
@@ -36,7 +37,7 @@ function* modelSpringElectrical(
         // Compound nodes should pull children closer.
         if(u.children.length > 0) {
             for(let child of u.children) {
-                yield forcePairwise(u, child, -compactness*(u.center.distanceTo(child.center)));
+                yield forcePairwiseNodes(u, child, -compactness*(u.center.distanceTo(child.center)));
             };
         }
         for(let v of elems.nodes()) {
@@ -54,13 +55,13 @@ function* modelSpringElectrical(
                 // Attractive force between edges if too far.
                 if(actualDistance > idealLength) {
                     const delta = actualDistance - idealLength;
-                    yield forcePairwise(u, v, [-wu*delta, -wv*delta]);
+                    yield forcePairwiseNodes(u, v, [-wu*delta, -wv*delta]);
                 }
             } else {
                 // Repulsive force between node pairs if too close.
                 if(actualDistance < idealDistance) {
                     const delta = idealDistance - actualDistance;
-                    yield forcePairwise(u, v, [wu*delta, wv*delta]);
+                    yield forcePairwiseNodes(u, v, [wu*delta, wv*delta]);
                 }
             }
         }
@@ -229,14 +230,15 @@ storiesOf('features', module)
     .add('named ports', () => {
         console.log('named ports');
         const nodesUnequalWithPorts = kGraphFive.nodesUnequal.map((n) => Object.assign({ ports: {
-            e1: { location: 'east' }, //e3: { location: 'east' },
-            // w1: { location: 'west' }, w2: { location: 'west' },
-            // n1: { location: 'north' }, n2: { location: 'north' },
-            // s1: { location: 'south' }, s2: { location: 'south' },
+            e1: { location: 'east', order: 1 }, e2: { location: 'east', order: 2 },
+            w1: { location: 'west', order: 1 }, w2: { location: 'west', order: 2 },
+            n1: { location: 'north', order: 1 }, n2: { location: 'north', order: 2 },
+            s1: { location: 'south', order: 1 }, s2: { location: 'south', order: 2 },
         } }, n))
         const edgesTreeWithPorts: EdgeSchema[] = [
-            { id: 'e0->1', source: { id: 'n0' }, target: { id: 'n1' } },
-            { id: 'e1->2', source: { id: 'n1' }, target: { id: 'n2' } },
+            { id: 'e0->1', source: { id: 'n0', port: 'e1' }, target: { id: 'n1' } },
+            { id: 'e1->2:1', source: { id: 'n1', port: 's1' }, target: { id: 'n2', port: 'n1' } },
+            { id: 'e1->2:2', source: { id: 'n1', port: 's2' }, target: { id: 'n2', port: 'n2' } },
             { id: 'e2->3', source: { id: 'n2' }, target: { id: 'n3' } },
             { id: 'e2->4', source: { id: 'n2' }, target: { id: 'n4' } },
         ];

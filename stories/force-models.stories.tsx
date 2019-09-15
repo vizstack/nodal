@@ -1,6 +1,6 @@
 import React from 'react';
 import { storiesOf } from '@storybook/react';
-import { text, boolean, number } from '@storybook/addon-knobs';
+import { number } from '@storybook/addon-knobs';
 import { Vector2, Box2 } from 'three';
 import {
     Node,
@@ -16,6 +16,7 @@ import {
     constrainDistance,
     forcePairwisePower,
     forcePairwise,
+    forcePairwiseNodes,
     forceVector,
     fromSchema,
     positionChildren,
@@ -203,14 +204,14 @@ storiesOf('force models', module)
                                 // //     uvPath,
                                 // // });
                                 // yield grads;
-                                yield forcePairwise(u, v, -(actualDistance - idealLength))
+                                yield forcePairwise(u.center, v.center, -(actualDistance - idealLength))
                             }
                             
                         } else {
                             // Repulsive force between node pairs if too close.
                             if(actualDistance < idealDistance) {
                                 // yield forcePairwisePower(u, v, { power: 1, control: idealDistance, scalar: -2*Math.pow(uvPath, -2) });  // TODO: Scale by idealDistance
-                                yield forcePairwise(u, v, (idealDistance - actualDistance))
+                                yield forcePairwiseNodes(u, v, (idealDistance - actualDistance))
                             }
                             // yield constrainDistance(u.center, v.center, ">=", idealDistance, { masses });
                         }
@@ -268,7 +269,7 @@ storiesOf('force models', module)
                     // Compound nodes should pull children closer.
                     if(u.children.length > 0) {
                         for(let child of u.children) {
-                            yield forcePairwise(u, child, -compactness*(u.center.distanceTo(child.center)));
+                            yield forcePairwiseNodes(u, child, -compactness*(u.center.distanceTo(child.center)));
                         };
                     }
                     for(let v of elems.nodes()) {
@@ -286,13 +287,13 @@ storiesOf('force models', module)
                             // Attractive force between edges if too far.
                             if(actualDistance > idealLength) {
                                 const delta = actualDistance - idealLength;
-                                yield forcePairwise(u, v, [-wu*delta, -wv*delta]);
+                                yield forcePairwiseNodes(u, v, [-wu*delta, -wv*delta]);
                             }
                         } else {
                             // Repulsive force between node pairs if too close.
                             if(actualDistance < idealDistance) {
                                 const delta = idealDistance - actualDistance;
-                                yield forcePairwise(u, v, [wu*delta, wv*delta]);
+                                yield forcePairwiseNodes(u, v, [wu*delta, wv*delta]);
                             }
                         }
                     }

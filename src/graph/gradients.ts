@@ -154,13 +154,15 @@ const kPortMasses: [number, number] = [1e6, 1];
 
 export function positionPorts(
     u: Node,
+    compactness: number = 0.01,
+    gap: number = 8,
 ): Gradient[] {
     const grads: Gradient[][] = [];
+    const ports = Object.values(u.ports);
     
     // TODO: Based on shape, which has locations, give to shape to produce constraint.
     const orders: Record<string, { order: number, location: string, point: Vector }[]> = {};
-    Object.values(u.ports)
-        .forEach((port) => {
+    ports.forEach((port) => {
             if(port.order !== undefined && port.location !== undefined) {
                 if (!(port.location in orders)) {
                     orders[port.location] = [];
@@ -169,20 +171,20 @@ export function positionPorts(
             }
         });
 
-    Object.values(u.ports).forEach(({location, order, point}) => {
+    ports.forEach(({location, order, point}) => {
         let portAxis: [number, number];
         switch(location) {
             case 'north':
                 portAxis = [1, 0];
                 grads.push(
-                    constrainOffset(u.center, point, "=", u.shape.height / 2, [0, 1], { masses: kPortMasses}),
+                    constrainOffset(u.center, point, "=", -u.shape.height / 2, [0, 1], { masses: kPortMasses}),
                     constrainDistance(u.center, point, '<=', u.shape.width / 2, { axis: [1, 0], masses: kPortMasses}),
                 );
                 break;
             case 'south':
                 portAxis = [1, 0];
                 grads.push(
-                    constrainOffset(u.center, point, "=", -u.shape.height / 2, [0, 1], { masses: kPortMasses}),
+                    constrainOffset(u.center, point, "=", u.shape.height / 2, [0, 1], { masses: kPortMasses}),
                     constrainDistance(u.center, point, '<=', u.shape.width / 2, { axis: [1, 0], masses: kPortMasses}),
                 );
                 break;
@@ -209,13 +211,20 @@ export function positionPorts(
         if (location && order) {
             orders[location].forEach((port) => {
                 if (port.order < order) {
-                    grads.push(constrainDistance(point, port.point, "<=", kPortSeparation, { axis: portAxis}));
-                }
-                if (port.order > order) {
-                    grads.push(constrainDistance(point, port.point, ">=", kPortSeparation, { axis: portAxis}));
+                    grads.push(constrainOffset(point, port.point, "<=", kPortSeparation, portAxis));
                 }
             })
         }
+
+        // Attract ports on border towards each other but repel each other.
+        if(location) {
+            grads.push(forcePairwise(u.center, point, [0, -compactness*u.center.distanceTo(point)]));
+        ports.forEach(({ point: otherpoint  }) => {
+            // grads.push(forcePairwise(point, otherpoint, [0, -compactness*(point.distanceTo(otherpoint) - gap)]));
+            grads.push(constrainDistance(point, otherpoint, '>=', gap));
+        });
+        }
+        
     });
     return grads.flat();
 }
@@ -308,18 +317,28 @@ export function forcePairwisePower(
 }
 
 export function forcePairwise(
+    p: Vector,
+    q: Vector,
+    magnitude: number | [number, number]
+): [Gradient, Gradient] {
+    if(!Array.isArray(magnitude)) magnitude = [magnitude, magnitude];
+    const qp = (new Vector()).subVectors(p, q).normalize();
+    const pq = qp.clone().negate();
+    qp.multiplyScalar(magnitude[0]);
+    pq.multiplyScalar(magnitude[1]);
+    return [new Gradient(p, qp), new Gradient(q, pq)];
+}
+
+export function forcePairwiseNodes(
     u: Node,
     v: Node,
     magnitude: number | [number, number]
 ): Gradient[] {
-    if(!Array.isArray(magnitude)) magnitude = [magnitude, magnitude];
-    const vu = (new Vector()).subVectors(u.center, v.center).normalize();
-    const uv = vu.clone().negate();
-    vu.multiplyScalar(magnitude[0]);
-    uv.multiplyScalar(magnitude[1]);
+    // TODO: Clean up interface to deal with fixed.
+    const [gradu, gradv] = forcePairwise(u.center, v.center, magnitude);
     const grads: Gradient[] = [];
-    if(!u.fixed) grads.push(new Gradient(u.center, vu));
-    if(!v.fixed) grads.push(new Gradient(v.center, uv));
+    if(!u.fixed) grads.push(gradu);
+    if(!v.fixed) grads.push(gradv);
     return grads;
 }
 
