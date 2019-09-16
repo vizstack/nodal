@@ -122,8 +122,11 @@ export function constrainOffset(
     return grads;
 }
 
+const kPadding = 10;
+
 export function positionChildren(
     u: Node,
+    padding: number=kPadding,
 ): Gradient[] {
     // TODO: Based on shape, which has different borders, give to shape to produce constraints.
 
@@ -132,12 +135,12 @@ export function positionChildren(
         const box = new Box2();
         u.children.forEach((child) => {
             box.expandByPoint(new Vector(
-                child.center.x - child.shape.width /2,
-                child.center.y - child.shape.height/2,
+                child.center.x - child.shape.width /2 - padding,
+                child.center.y - child.shape.height/2 - padding,
             ));
             box.expandByPoint(new Vector(
-                child.center.x + child.shape.width /2,
-                child.center.y + child.shape.height/2,
+                child.center.x + child.shape.width /2 + padding,
+                child.center.y + child.shape.height/2 + padding,
             ))
         });
         box.getCenter(u.center);
