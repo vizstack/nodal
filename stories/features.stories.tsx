@@ -61,10 +61,10 @@ function* forceSpringModel(
                 yield forcePairwiseNodes(u, v, [-wu*delta, -wv*delta]);
             } else {
                 // Repulsive force between node pairs if too close.
-                console.log("repulsive", actualDistance, idealDistance);
+                // console.log("repulsive", actualDistance, idealDistance);
                 if(actualDistance < idealDistance) {
                     const delta = idealDistance - actualDistance;
-                    console.log("too close", wu, wv, delta);
+                    // console.log("too close", wu, wv, delta);
                     yield forcePairwiseNodes(u, v, [wu*delta, wv*delta]);
                 }
             }
