@@ -72,10 +72,16 @@ export function constrainAngle(
     p: Vector,
     q: Vector,
     angle: number,
+    strength: number = 1,
     { masses = [1, 1] }: Partial<{ masses: [number, number] }> = {},
 ): Gradient[] {
-    // TODO
-    return [];
+    const pq = (new Vector()).subVectors(q, p).normalize();
+    const direction = new Vector(Math.cos(angle), Math.sin(angle));
+    if(direction.dot(pq) < 0) direction.negate();  // Flip so vectors form acute angle.
+    const delta = strength * direction.cross(pq);  // Positive when pq form positive angle.
+    const gradq = (new Vector(pq.y, -pq.x)).multiplyScalar(delta*masses[0]/(masses[0] + masses[1]));
+    const gradp = (new Vector(-pq.y, pq.x)).multiplyScalar(delta*masses[1]/(masses[0] + masses[1]));
+    return [new Gradient(p, gradp), new Gradient(q, gradq)];
 }
 
 /**
@@ -267,13 +273,20 @@ export function positionNoOverlap(u: Node, v: Node): Gradient[] {
 }
 
 export function positionAlignment(u: Node, v: Node, direction: [number, number]): Gradient[] {
-    // TODO
-    return [];
+    const [x, y] = direction;
+    return constrainDistance(u.center, v.center, '=', 0, { axis: [-y, x] });
 }
 
-export function positionSeparation(u: Node, v: Node): Gradient[] {
-    // TODO
-    return [];
+export function positionSeparation(u: Node, v: Node, op: '=' | '>=' | '<=',
+separation: number, { masses = [1, 1] }: Partial<{ masses: [number, number] }> = {}): Gradient[] {
+    const uv = (new Vector()).subVectors(v.center, u.center);
+    let distance = uv.length();
+    const { width: uwidth, height: uheight } = u.shape;
+    const { width: vwidth, height: vheight } = v.shape;
+    const uborder = uv.y * uwidth > uv.x * uheight ? new Vector(uv.x / uv.y * uwidth, uheight) : new Vector(uwidth, uv.y / uv.x * uheight);
+    const vborder = uv.y * vwidth > uv.x * vheight ? new Vector(uv.x / uv.y * vwidth, vheight) : new Vector(vwidth, uv.y / uv.x * vheight);
+    let interior = (uborder.length() + vborder.length()) / 2;
+    return constrainDistance(u.center, v.center, op, separation + interior, { masses })
 }
 
 export function positionCircular(u: Node, v: Node): Gradient[] {
@@ -281,9 +294,10 @@ export function positionCircular(u: Node, v: Node): Gradient[] {
     return [];
 }
 
-export function positionGridSnap(u: Node): Gradient[] {
-    // TODO
-    return [];
+export function positionGridSnap(u: Node, dx: number, dy: number): Gradient[] {
+    const snapx = Math.floor(u.center.x / dx) * dx;
+    const snapy = Math.floor(u.center.y / dy) * dy;
+    return constrainDistance(u.center, new Vector(snapx, snapy), "=", 0);
 }
 
 /**

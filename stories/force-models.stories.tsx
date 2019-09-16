@@ -259,7 +259,7 @@ storiesOf('force models', module)
         const shortestPath = elems.shortestPaths();
         const numSteps = number('# timesteps', 100, { range: true, min: 0, max: 200, step: 1 });
         const idealLength = number('ideal length', 30);
-        const compactness = number('group compactness', 0.5);
+        const compactness = number('group compactness', 2);
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
@@ -283,15 +283,13 @@ storiesOf('force models', module)
                         if(uvPath === undefined) continue; // Ignore disconnected components.
                         const idealDistance = idealLength * uvPath;
                         const actualDistance = u.center.distanceTo(v.center);
-                        if((elems as StructuredStorage).existsEdge(u, v, true)) {
+                        if((elems as StructuredStorage).existsEdge(u, v, true) && actualDistance > idealLength) {
                             // Attractive force between edges if too far.
-                            if(actualDistance > idealLength) {
-                                const delta = actualDistance - idealLength;
-                                yield forcePairwiseNodes(u, v, [-wu*delta, -wv*delta]);
-                            }
+                            const delta = actualDistance - idealLength;
+                            yield forcePairwiseNodes(u, v, [-wu*delta, -wv*delta]);
                         } else {
-                            // Repulsive force between node pairs if too close.
                             if(actualDistance < idealDistance) {
+                                // Repulsive force between node pairs if too close.
                                 const delta = idealDistance - actualDistance;
                                 yield forcePairwiseNodes(u, v, [wu*delta, wv*delta]);
                             }

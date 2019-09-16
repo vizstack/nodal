@@ -19,13 +19,16 @@ import {
     positionPorts,
     positionNoOverlap,
     constrainOffset,
+    constrainAngle,
     BasicOptimizer,
     TrustRegionOptimizer,
     EdgeSchema,
+    Vector
 } from '../src';
 import { Graph } from './Graph';
+import { kGraphTwo } from './schemas-two';
 
-function* modelSpringElectrical(
+function* forceSpringModel(
     elems: StructuredStorage,
     shortestPath: (u: Node, v: Node) => number | undefined,
     idealLength: number,
@@ -51,16 +54,17 @@ function* modelSpringElectrical(
             if(uvPath === undefined) continue; // Ignore disconnected components.
             const idealDistance = idealLength * uvPath;
             const actualDistance = u.center.distanceTo(v.center);
-            if(elems.existsEdge(u, v, true)) {
+            // const actualDistance = separation({ center: u.center, width: u.shape.width, height: u.shape.height}, { center: v.center, width: v.shape.width, height: v.shape.height});
+            if(elems.existsEdge(u, v, true) && actualDistance > idealLength) {
                 // Attractive force between edges if too far.
-                if(actualDistance > idealLength) {
-                    const delta = actualDistance - idealLength;
-                    yield forcePairwiseNodes(u, v, [-wu*delta, -wv*delta]);
-                }
+                const delta = actualDistance - idealLength;
+                yield forcePairwiseNodes(u, v, [-wu*delta, -wv*delta]);
             } else {
                 // Repulsive force between node pairs if too close.
+                console.log("repulsive", actualDistance, idealDistance);
                 if(actualDistance < idealDistance) {
                     const delta = idealDistance - actualDistance;
+                    console.log("too close", wu, wv, delta);
                     yield forcePairwiseNodes(u, v, [wu*delta, wv*delta]);
                 }
             }
@@ -96,7 +100,7 @@ storiesOf('features', module)
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* modelSpringElectrical(elems as StructuredStorage, shortestPath, idealLength, compactness);
+                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, compactness);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -116,7 +120,7 @@ storiesOf('features', module)
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* modelSpringElectrical(elems as StructuredStorage, shortestPath, idealLength, compactness);
+                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, compactness);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -136,7 +140,7 @@ storiesOf('features', module)
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* modelSpringElectrical(elems as StructuredStorage, shortestPath, idealLength, compactness);
+                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, compactness);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -156,7 +160,7 @@ storiesOf('features', module)
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* modelSpringElectrical((elems as StructuredStorage), shortestPath, idealLength, compactness);
+                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, compactness);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -176,7 +180,7 @@ storiesOf('features', module)
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* modelSpringElectrical((elems as StructuredStorage), shortestPath, idealLength, compactness);
+                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, compactness);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -203,7 +207,7 @@ storiesOf('features', module)
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* modelSpringElectrical((elems as StructuredStorage), shortestPath, idealLength, compactness);
+                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, compactness);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -250,7 +254,7 @@ storiesOf('features', module)
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* modelSpringElectrical((elems as StructuredStorage), shortestPath, idealLength, compactness);
+                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, compactness);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -267,6 +271,30 @@ storiesOf('features', module)
                 yield constrain('n2', 'n3', [1, 0]);
                 yield constrain('n2', 'n4', [0, 1]);
                 
+            },
+            configForceElectrical,
+        );
+        return (
+            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
+        );
+    })
+    .add('oriented edges', () => {
+        const [nodes, edges] = fromSchema(kGraphTwo.nodes, kGraphTwo.edges);
+        const elems = new StructuredStorage(nodes, edges);
+        const shortestPath = elems.shortestPaths();
+        const idealLength = number('ideal length', 100);
+        const compactness = number('group compactness', 0.5);
+        const layout = new ForceConstraintLayout(
+            elems,
+            function* (elems) {
+                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, compactness);
+                
+                for(let edge of elems.edges()) {
+                    yield constrainAngle(edge.source.node.center, edge.target.node.center, -Math.PI/4);
+                }
+            },
+            function* (elems, step) {
+                yield* constrainNodes(elems as StructuredStorage, step);
             },
             configForceElectrical,
         );
