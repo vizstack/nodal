@@ -1,6 +1,6 @@
 import React from 'react';
 import { storiesOf } from '@storybook/react';
-import { number } from '@storybook/addon-knobs';
+import { number, boolean } from '@storybook/addon-knobs';
 
 import { kGraphFive } from './schemas-five';
 import {
@@ -17,6 +17,9 @@ import {
     forceVector,
     positionChildren,
     positionPorts,
+    positionAlignment,
+    positionGridSnap,
+    positionSeparation,
     positionNoOverlap,
     constrainOffset,
     constrainAngle,
@@ -96,11 +99,10 @@ storiesOf('features', module)
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const compactness = number('group compactness', 0.5);
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, compactness);
+                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -116,11 +118,10 @@ storiesOf('features', module)
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const compactness = number('group compactness', 0.5);
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, compactness);
+                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -136,11 +137,10 @@ storiesOf('features', module)
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const compactness = number('group compactness', 0.5);
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, compactness);
+                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -176,11 +176,10 @@ storiesOf('features', module)
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const compactness = number('group compactness', 0.5);
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, compactness);
+                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, 0);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -203,11 +202,10 @@ storiesOf('features', module)
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const compactness = number('group compactness', 0.5);
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, compactness);
+                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, 0);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -240,7 +238,7 @@ storiesOf('features', module)
             s1: { location: 'south', order: 1 }, s2: { location: 'south', order: 2 },
         } }, n))
         const edgesTreeWithPorts: EdgeSchema[] = [
-            { id: 'e0->1', source: { id: 'n0', port: 'e1' }, target: { id: 'n1' } },
+            { id: 'e0->1', source: { id: 'n0', port: 'e1' }, target: { id: 'n1', port: 'w1' } },
             { id: 'e1->2:1', source: { id: 'n1', port: 's1' }, target: { id: 'n2', port: 'n1' } },
             { id: 'e1->2:2', source: { id: 'n1', port: 's2' }, target: { id: 'n2', port: 'n2' } },
             { id: 'e2->3', source: { id: 'n2' }, target: { id: 'n3' } },
@@ -250,11 +248,10 @@ storiesOf('features', module)
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const compactness = number('group compactness', 0.5);
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, compactness);
+                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, 0);
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
@@ -283,18 +280,75 @@ storiesOf('features', module)
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 100);
-        const compactness = number('group compactness', 0.5);
+        const orientationAngle = number('orientation angle', 45, { range: true, min: 0, max: 360, step:  1 })
+        const orientationStrength = number('orientation strength', 1);
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
-                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, compactness);
+                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
                 
                 for(let edge of elems.edges()) {
-                    yield constrainAngle(edge.source.node.center, edge.target.node.center, -Math.PI/4);
+                    yield constrainAngle(edge.source.node.center, edge.target.node.center, orientationAngle, orientationStrength);
                 }
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
+            },
+            configForceElectrical,
+        );
+        return (
+            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
+        );
+    })
+    .add('alignment', () => {
+        const [nodes, edges] = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesTree);
+        const elems = new StructuredStorage(nodes, edges);
+        const shortestPath = elems.shortestPaths();
+        const idealLength = number('ideal length', 30);
+        const layout = new ForceConstraintLayout(
+            elems,
+            function* (elems) {
+                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
+            },
+            function* (elems, step) {
+                yield* constrainNodes(elems as StructuredStorage, step);
+
+                function align(u: NodeId, v: NodeId, axis: [number, number]) {
+                    return positionAlignment(elems.node(u), elems.node(v), axis);
+                }
+
+                yield align('n0', 'n1', [1, 0]);
+                yield align('n1', 'n2', [0, 1]);
+                yield align('n2', 'n3', [1, 0]);
+                yield align('n2', 'n4', [0, 1]);
+            },
+            configForceElectrical,
+        );
+        return (
+            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
+        );
+    })
+    .add('grid snap', () => {
+        // TODO: Need global grid snap transformation, so nudges don't cause overlap.
+        const [nodes, edges] = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesAcyclic);
+        const elems = new StructuredStorage(nodes, edges);
+        const shortestPath = elems.shortestPaths();
+        const idealLength = number('ideal length', 30);
+        const gridSnap = boolean('grid snap', true);
+        const gridX = number('grid x', 5);
+        const gridY = number('grid y', 10);
+        const layout = new ForceConstraintLayout(
+            elems,
+            function* (elems) {
+                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
+            },
+            function* (elems, step) {
+                yield* constrainNodes(elems as StructuredStorage, step);
+                if(gridSnap && step > 100) {
+                    for(let u of elems.nodes()) {
+                        yield positionGridSnap(u, gridX, gridY);
+                    }
+                }
             },
             configForceElectrical,
         );

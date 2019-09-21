@@ -14,6 +14,9 @@ type GraphProps = {
     /** Function to specify color, as a string or an index into the default color palette. */
     nodeColor?: (n: Node) => string | number,
     edgeColor?: (e: Edge) => string | number,
+
+    /** Minimum graph size. */
+    size?: [number, number];
 };
 
 type GraphState = {
@@ -29,6 +32,7 @@ type GraphState = {
     };
 };
 
+const kPortRadius = 2;
 const kAnimationTick = 0;
 const kLayoutSteps = 250;
 
@@ -36,6 +40,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     static defaultProps: Partial<GraphProps> = {
         animated: false,
         interactive: false,
+        size: [500, 500],
     };
     constructor(props: GraphProps) {
         super(props);
@@ -118,6 +123,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     render() {
         const { nodes = [], edges = [], drag } = this.state;
         const bounds = drag ? drag.bounds : this.state.bounds;
+        const { size = [0, 0] } = this.props;
 
         const nodeColor = (n: Node) => {
             if(!this.props.nodeColor) return Palette[0];  // Blue
@@ -159,6 +165,18 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                             }}>
                             {node.id.substring(1)}
                         </text>
+                        {Object.entries(node.ports).map(([name, port]) => (
+                            name.startsWith('_') ? null : (
+                                <circle
+                                    cx={port.point.x}
+                                    cy={port.point.y}
+                                    r={kPortRadius}
+                                    fill={nodeColor(node)}
+                                    stroke={Color.white}
+                                    strokeWidth={0.75}
+                                />
+                            )
+                        ))}
                     </g>
                 );
             }
@@ -191,6 +209,18 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                             }}>
                             {node.id.substring(1)}
                         </text>
+                        {Object.entries(node.ports).map(([name, port]) => (
+                            name.startsWith('_') ? null : (
+                                <circle
+                                    cx={port.point.x}
+                                    cy={port.point.y}
+                                    r={kPortRadius}
+                                    fill={nodeColor(node)}
+                                    stroke={Color.white}
+                                    strokeWidth={0.75}
+                                />
+                            )
+                        ))}
                     </g>
                 );
             }
@@ -215,9 +245,9 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         
         return (
             <svg
-                viewBox={bounds ? `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}` : undefined}
-                width={bounds ? `${bounds.width}` : '100%'}
-                height={bounds ? `${bounds.height}` : '100%'}
+                viewBox={bounds ? `${bounds.x} ${bounds.y} ${Math.max(bounds.width, size[0])} ${Math.max(bounds.height, size[1])}` : undefined}
+                width={bounds ? `${Math.max(bounds.width, size[0])}` : '100%'}
+                height={bounds ? `${Math.max(bounds.height, size[1])}` : '100%'}
                 onMouseMove={(e) => this.onMouseMove(e.clientX, e.clientY)}
                 onMouseUp={(e) => this.onMouseUp()}
             >

@@ -65,20 +65,48 @@ export function constrainDistance(
 }
 
 /**
- * Constrains the angle of the segment between points. The mass of a point determines its inertia
- * i.e. with more mass it moves less.
+ * Constrains the angle of the vector pointing from `p` to `q`. The mass of a point determines its
+ * inertia i.e. with more mass it moves less. Note that because many rendering schemes make the
+ * positive-y axis point downwards, the angle is measured clockwise from 0 (not counter-clockwise
+ * as is the convention in trigonometry).
+ * @param p
+ *     Point vector that serves as source (direction tail).
+ * @param q 
+ *     Point vector that serves as target (direction head.).
+ * @param angle 
+ *     A single angle or list of angles, in degrees within range [0, 360].
+ * @param strength
+ *     Maximum magnitude restoring force, when vector is directly opposite the angle.
  */
 export function constrainAngle(
     p: Vector,
     q: Vector,
-    angle: number,
+    angle: number | number[],
     strength: number = 1,
     { masses = [1, 1] }: Partial<{ masses: [number, number] }> = {},
 ): Gradient[] {
     const pq = (new Vector()).subVectors(q, p).normalize();
-    const direction = new Vector(Math.cos(angle), Math.sin(angle));
-    if(direction.dot(pq) < 0) direction.negate();  // Flip so vectors form acute angle.
-    const delta = strength * direction.cross(pq);  // Positive when pq form positive angle.
+    const pqAngle = Math.atan2(pq.y, pq.x) * 180 / Math.PI;  // In degrees.
+    let desired: number;
+    if(Array.isArray(angle)) {
+        if(angle.length === 0) throw Error('No angles specified');
+        desired = angle[0];
+        let mindiff = Number.POSITIVE_INFINITY;
+        for(let a of angle) {
+            // Positive angular difference in range [0, 180].
+            const diff = 180 - Math.abs(Math.abs(a - pqAngle) - 180);
+            if(diff < mindiff) {
+                desired = a;
+                mindiff = diff;
+            }
+        }
+    } else {
+        desired = angle;
+    }
+
+    // Signed angular difference in range (-180, 180].
+    const sgndiff = (pqAngle - desired - 540) % 360 + 180;
+    const delta = strength * sgndiff;  // In range (-strength, strength];  
     const gradq = (new Vector(pq.y, -pq.x)).multiplyScalar(delta*masses[0]/(masses[0] + masses[1]));
     const gradp = (new Vector(-pq.y, pq.x)).multiplyScalar(delta*masses[1]/(masses[0] + masses[1]));
     return [new Gradient(p, gradp), new Gradient(q, gradq)];
@@ -93,10 +121,10 @@ export function constrainAngle(
  * @param op 
  *     Whether to make offset of `q` relative to `p` equal to (`=`), greater than / equal to (`>=`),
  *     or less than / equal to (`<=`) the specified value.
- * @param direction
- *     Direction vector onto which the offset is projected. Magnitude does not matter.
  * @param offset 
  *     How much along the direction vector `q` should be relative to `p`. Can be negative.
+ * @param direction
+ *     Direction vector onto which the offset is projected. Magnitude does not matter.
  * @param masses
  *     Mass of a point determines its inertia, i.e. with more mass it moves less.
  */
@@ -272,8 +300,8 @@ export function positionNoOverlap(u: Node, v: Node): Gradient[] {
     return shorter;
 }
 
-export function positionAlignment(u: Node, v: Node, direction: [number, number]): Gradient[] {
-    const [x, y] = direction;
+export function positionAlignment(u: Node, v: Node, axis: [number, number]): Gradient[] {
+    const [x, y] = axis;
     return constrainDistance(u.center, v.center, '=', 0, { axis: [-y, x] });
 }
 
