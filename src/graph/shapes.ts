@@ -3,19 +3,8 @@ import { Vector, Gradient } from '../optim';
 /** A lightweight specification that is transformed into a `Shape`. */
 export type ShapeSchema = {
     type: string,
-    padding: number,
-    margin: number,
-    preserveSize: boolean,
-    preserveAspectRatio: boolean,
+    preserve?: 'size' | 'ratio',
 }
-
-/** Configuration options for a `Shape`. */
-type ShapeConfig = {
-    padding: number,
-    margin: number,
-    preserveSize: boolean,
-    preserveAspectRatio: boolean,
-};
 
 /**
  * A `Shape` represents a convex boundary of a node. It has preferred dimensions, but these may be
@@ -23,23 +12,7 @@ type ShapeConfig = {
  * (outside) of the boundary.
  */
 export abstract class Shape {
-    public padding: number;
-    public margin: number;
-    public preserveSize: boolean;
-    public preserveAspectRatio: boolean;
-    constructor(
-        public readonly center: Vector,
-        {
-            padding = 0,
-            margin = 0,
-            preserveSize = false,
-            preserveAspectRatio = false,
-        }: Partial<ShapeConfig> = {}) {
-        this.padding = padding;
-        this.margin = margin;
-        this.preserveSize = preserveSize;
-        this.preserveAspectRatio = preserveAspectRatio;
-    }
+    constructor(public readonly center: Vector, public preserve?: 'size' | 'ratio') {}
 
     /**
      * Returns the axis-aligned bounding box (AABB) around the shape.
@@ -49,7 +22,7 @@ export abstract class Shape {
     /**
      * Returns the point on the boundary in the specified `direction` with respect to the center.
      */
-    public abstract boundary(direction: Vector): Vector;
+    public abstract boundary(direction: Vector, offset?: number): Vector;
 
     /**
      * Returns a point on the boundary that is furthest along the specified `direction`, i.e. a
@@ -60,66 +33,78 @@ export abstract class Shape {
     /**
      * Returns whether the specified point is contained within the shape.
      */
-    public abstract contains(point: Vector): boolean;
+    public abstract contains(point: Vector, offset?: number): boolean;
 
     /**
-     * Produces gradients to keep `child` within this shape, adjusting this shape's dimensions and
-     * the `child`'s location according to the relative masses.
-     * @param children 
+     * Produces gradients to keep the child `shape` within this shape, adjusting this shape's dimensions and the child `shape`'s location according to the relative masses.
+     * @param shape
+     *     The shape to constrain within this shape's boundary.
      * @param masses
+     *     The mass of this shape and the child shape, respectively.
      */
-    public abstract forceContainShape(child: Shape, masses?: [number, number]): Gradient[];
+    public abstract constrainShapeWithin(
+        shape: Shape,
+        config: Partial<{ masses: { shape: number, subshape: number }, expansion: number, offset: number }>
+    ): Gradient[];
 
     /**
-     * Produces gradients to keep the `point` within the shape, adjusting this shape's dimensions
+     * Produces gradients to keep the `point` within this shape, adjusting this shape's dimensions
      * and the `point`'s location according to the relative masses.
      * @param point 
+     *     The point to constrain within this shape's boundary.
      * @param masses 
+     *     The mass of this shape and the point, respectively.
      */
-    public abstract forceContainPoint(point: Vector, masses?: [number, number]): Gradient[];
+    public abstract constrainPointWithin(
+        point: Vector,
+        config: Partial<{ masses: { shape: number, point: number }, expansion: number, offset: number }>
+    ): Gradient[];
 
     /**
-     * Produces gradients to keep the `point` at a particular region on the shape's interior or
-     * boundary.
+     * Produces gradients to keep the `point` on the shape's interior boundary.
      * @param point 
-     * @param location 
+     *     The point to constrain to this shape's boundary.
      * @param masses 
+     *     The mass of this shape and the point, respectively.
      */
-    public abstract forceConstrainPoint(point: Vector, location: string, masses?: [number, number]): Gradient[];
+    public abstract constrainPointOnBoundary(
+        point: Vector,
+        config: Partial<{ masses: { shape: number, point: number }, expansion: number, offset: number }>
+    ): Gradient[];
 
     /**
      * Transforms this `Shape` to a `ShapeSchema`.
      */
     public abstract toSchema(): ShapeSchema;
-
-    /**
-     * Transforms a `ShapeSchema` to a new `Shape`.
-     */
-    public abstract fromSchema(schema: ShapeSchema): Shape;
 }
 
 export class Rectangle extends Shape {
-    // Lower and upper bounds of rectangele, in global coordinates.
-    public lower: Vector;
-    public upper: Vector;
+    /** Half-width and half-height, with respect to the center. */
+    public control: Vector;
+    
     constructor(
         center: Vector,
         width: number,
         height: number,
-        config: Partial<ShapeConfig> = {},
+        preserve?: 'size' | 'ratio',
     ) {
-        super(center, config);
-        this.lower = new Vector(center.x - width / 2, center.y - height / 2);
-        this.upper = new Vector(center.x + width / 2, center.y + height / 2);   
+        super(center, preserve);
+        this.control = new Vector(width / 2, height / 2);
     }
 
     public bounds() {
-        return { x: this.lower.x, y: this.lower.y, X: this.upper.x, Y: this.upper.y,
-            width: this.upper.x - this.lower.x, height: this.upper.y - this.lower.y };
+        return {
+            x: this.center.x - this.control.x,
+            X: this.center.x + this.control.x,
+            y: this.center.y - this.control.y,
+            Y: this.center.y + this.control.y,
+            width: this.control.x * 2,
+            height: this.control.y * 2,
+        };
     }
 
-    public boundary(direction: Vector) {
-        for(let [start, end] of this._edges()) {
+    public boundary(direction: Vector, offset: number = 0) {
+        for(let [start, end] of this._edges(offset)) {
             const pt = intersectSegment(start, end, direction);
             if(pt !== undefined) return pt.add(this.center);
         }
@@ -140,47 +125,63 @@ export class Rectangle extends Shape {
         return support.add(this.center);
     }
 
-    public contains(point: Vector ) {
-        const direction = (new Vector()).subVectors(point, this.center);
-        return direction.lengthSq() < this.boundary(direction).lengthSq();
+    public contains(point: Vector, offset: number = 0) {
+        return (
+            (point.x <= this.center.x + this.control.x + offset) &&
+            (point.x >= this.center.x - this.control.x - offset) &&
+            (point.y <= this.center.y + this.control.y + offset) &&
+            (point.y >= this.center.y - this.control.y - offset)
+        );
     }
 
-    public forceContainShape(shape: Shape) {
+    public constrainShapeWithin(shape: Shape, { masses = { shape: 1, subshape: 1 }, expansion = 0, offset = 0 } = {}) {
         // TODO
         return [];
     }
 
-    public forceContainPoint(point: Vector, masses?: [number, number]) {
-        // TODO
-        return [];
+    public constrainPointWithin(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
+        if(this.contains(point, offset)) return [];
+        return this.constrainPointOnBoundary(point, { masses, expansion, offset });
     }
 
-    public forceConstrainPoint(
-        point: Vector,
-        location: 'boundary'|'north'|'south'|'east'|'west',
-        masses?: [number, number]
-    ) {
-        // TODO
-        return [];
+    public constrainPointOnBoundary(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
+        const centerToPoint = (new Vector()).subVectors(point, this.center);
+        const boundary = this.boundary(centerToPoint, offset);
+        const boundaryToPointOffset = centerToPoint.length() - boundary.length();
+        const pointDelta = -boundaryToPointOffset * (masses.shape / (masses.shape + masses.point));
+        const shapeDelta = boundaryToPointOffset * (masses.point / (masses.shape + masses.point));
+        const centerDelta = shapeDelta * (1 - expansion);
+        const boundaryDelta = shapeDelta * expansion;
+
+        centerToPoint.normalize();
+        const pointGrad =  new Gradient(
+            point,
+            centerToPoint.clone().multiplyScalar(pointDelta),
+        );
+        const centerGrad = new Gradient(
+            this.center,
+            centerToPoint.clone().multiplyScalar(centerDelta),
+        );
+        const controlGrad = new Gradient(
+            this.control,
+            (new Vector()).addVectors(
+                centerGrad.grad,
+                this.control.clone().multiplyScalar(boundaryDelta / boundary.length())
+            ),
+        );
+        return [pointGrad, centerGrad, controlGrad];
     }
 
     public toSchema() {
-        const { padding, margin, preserveSize, preserveAspectRatio } = this;
+        const { preserve } = this;
         const { width, height } = this.bounds();
-        return {
-            type: 'rectangle',
-            padding, margin, preserveAspectRatio, preserveSize,
-            width, height };
+        return { type: 'rectangle', preserve, width, height };
     }
 
-    public fromSchema(schema: ShapeSchema) {
-        // TODO
-        return new Rectangle(this.center, 0, 0);
-    }
-
-    private _edges(): Array<[Vector, Vector]> {
-        const x = this.lower.x - this.center.x, X = this.upper.x - this.center.x;
-        const y = this.lower.y - this.center.y, Y = this.upper.y - this.center.y;
+    private _edges(offset: number = 0): Array<[Vector, Vector]> {
+        const { x: halfwidth, y: halfheight } = this.control;
+        const x = -halfwidth - offset, X = halfwidth + offset;
+        const y = -halfheight - offset, Y = halfheight + offset;
         return [
             [new Vector(x, y), new Vector(X, y)],  // Top edge.
             [new Vector(x, Y), new Vector(X, Y)],  // Bottom edge.
@@ -189,16 +190,70 @@ export class Rectangle extends Shape {
         ];
     }
 
-    private _vertices(): Array<Vector> {
-        const x = this.lower.x - this.center.x, X = this.upper.x - this.center.x;
-        const y = this.lower.y - this.center.y, Y = this.upper.y - this.center.y;
+    private _vertices(offset: number = 0): Array<Vector> {
+        const { x: halfwidth, y: halfheight } = this.control;
+        const x = -halfwidth - offset, X = halfwidth + offset;
+        const y = -halfheight - offset, Y = halfheight + offset;
         return [new Vector(x, y), new Vector(X, y), new Vector(x, Y), new Vector(X, Y)];
     }
 }
 
-// export class Circle extends Shape {
+export class Circle extends Shape {
+    /** Point at the zero-angle point of a circle. */
+    public radius: Vector;
 
-// }
+    constructor(
+        center: Vector,
+        radius: number,
+        preserve?: 'size' | 'ratio',
+    ) {
+        super(center, preserve);
+        this.radius = new Vector(radius, 0);
+    }
+
+    public bounds() {
+        return {
+            x: this.center.x - this.radius.x,
+            X: this.center.x + this.radius.x,
+            y: this.center.y - this.radius.x,
+            Y: this.center.y + this.radius.x,
+            width: this.radius.x * 2,
+            height: this.radius.x * 2,
+        }
+    }
+
+    public boundary(direction: Vector) {
+        return direction.clone().setLength(this.radius.x).add(this.center);
+    }
+
+    public support(direction: Vector) {
+        return this.boundary(direction);
+    }
+
+    public contains(point: Vector) {
+        return (new Vector()).subVectors(point, this.center).length() < this.radius.x;
+    }
+
+    public constrainShapeWithin(shape: Shape, { masses = { shape: 1, subshape: 1 }, expansion = 0, offset = 0 } = {}) {
+        // TODO
+        return [];
+    }
+
+    public constrainPointWithin(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
+        // TODO
+        return [];
+    }
+
+    public constrainPointOnBoundary(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
+        // TODO
+        return [];
+    }
+
+    public toSchema() {
+        const { preserve } = this;
+        return { type: 'circle', preserve, radius: this.radius.x };
+    }
+}
 
 /**
  * Returns the point on a line segment intersected by a ray coming from the origin, or undefined if

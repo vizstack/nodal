@@ -281,7 +281,7 @@ storiesOf('features', module)
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 100);
         const orientationAngle = number('orientation angle', 45, { range: true, min: 0, max: 360, step:  1 })
-        const orientationStrength = number('orientation strength', 1);
+        const orientationStrength = number('orientation strength', 10);
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {

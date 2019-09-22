@@ -106,7 +106,7 @@ export function constrainAngle(
 
     // Signed angular difference in range (-180, 180].
     const sgndiff = (pqAngle - desired - 540) % 360 + 180;
-    const delta = strength * sgndiff;  // In range (-strength, strength];  
+    const delta = strength * sgndiff / 180;  // In range (-strength, strength];  
     const gradq = (new Vector(pq.y, -pq.x)).multiplyScalar(delta*masses[0]/(masses[0] + masses[1]));
     const gradp = (new Vector(-pq.y, pq.x)).multiplyScalar(delta*masses[1]/(masses[0] + masses[1]));
     return [new Gradient(p, gradp), new Gradient(q, gradq)];
