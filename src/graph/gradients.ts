@@ -300,9 +300,14 @@ export function positionNoOverlap(u: Node, v: Node): Gradient[] {
     return shorter;
 }
 
-export function positionAlignment(u: Node, v: Node, axis: [number, number]): Gradient[] {
+export function positionAlignment(nodes: Node[], axis: [number, number]): Gradient[] {
     const [x, y] = axis;
-    return constrainDistance(u.center, v.center, '=', 0, { axis: [-y, x] });
+    if(nodes.length < 2) return [];
+    const grads: Gradient[] = [];
+    for(let i = 0; i < nodes.length - 1; i++) {
+        grads.push(...constrainDistance(nodes[i].center, nodes[i+1].center, '=', 0, { axis: [-y, x] }))
+    }
+    return grads;
 }
 
 export function positionSeparation(u: Node, v: Node, op: '=' | '>=' | '<=',

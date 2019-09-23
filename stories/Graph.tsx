@@ -70,17 +70,19 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     }
     componentDidMount() {
         const { layout } = this.props;
+        console.warn('MOUNTED');
         layout.start();
     }
 
     onMouseDown = (node: Node, x: number, y: number) => {
         if(!this.props.interactive) return;
         if(this.state.drag !== undefined) this.onMouseUp();
+        const fixed = node.fixed;
         this.setState((state) => ({ drag: {
             node: node,
             origin: { x, y },
             center: { x: node.center.x, y: node.center.y },
-            fixed: node.fixed,
+            fixed: fixed,
             bounds: state.bounds,
         } }));
         node.fixed = true;

@@ -7,6 +7,8 @@ import {
     Node,
     Edge,
     NodeId,
+    NodeSchema,
+    EdgeSchema,
     fromSchema,
     StructuredStorage,
     ForceConstraintLayout,
@@ -25,7 +27,6 @@ import {
     constrainAngle,
     BasicOptimizer,
     TrustRegionOptimizer,
-    EdgeSchema,
     Vector
 } from '../src';
 import { Graph } from './Graph';
@@ -48,8 +49,9 @@ function* forceSpringModel(
         }
         for(let v of elems.nodes()) {
             if(visited.has(v)) continue;
-            if(u.fixed && v.fixed) continue;
-            const [wu, wv] = [u.fixed ? 0 : 1, v.fixed ? 0 : 1];
+            // if(u.fixed && v.fixed) continue;
+            // const [wu, wv] = [u.fixed ? 0 : 1, v.fixed ? 0 : 1];
+            const [wu, wv] = [1, 1];
 
             // Spring force. Attempt to reach ideal distance between all pairs,
             // except unconnected pairs that are farther away than ideal.
@@ -67,7 +69,6 @@ function* forceSpringModel(
                 // console.log("repulsive", actualDistance, idealDistance);
                 if(actualDistance < idealDistance) {
                     const delta = idealDistance - actualDistance;
-                    // console.log("too close", wu, wv, delta);
                     yield forcePairwiseNodes(u, v, [wu*delta, wv*delta]);
                 }
             }
@@ -90,7 +91,7 @@ function* constrainNodes(elems: StructuredStorage, step: number) {
 
 const configForceElectrical = {
     numSteps: 200, numConstraintIters: 5, numForceIters: 5,
-    forceOptimizer: new TrustRegionOptimizer({ lrInitial: 0.4, lrMax: 0.8, lrMin: 0.001 })
+    forceOptimizer: new TrustRegionOptimizer({ lrInitial: 0.8, lrMax: 0.8, lrMin: 0.001, adaption: 0.99 })
 };
 
 storiesOf('features', module)
@@ -314,7 +315,7 @@ storiesOf('features', module)
                 yield* constrainNodes(elems as StructuredStorage, step);
 
                 function align(u: NodeId, v: NodeId, axis: [number, number]) {
-                    return positionAlignment(elems.node(u), elems.node(v), axis);
+                    return positionAlignment([elems.node(u), elems.node(v)], axis);
                 }
 
                 yield align('n0', 'n1', [1, 0]);
@@ -347,6 +348,235 @@ storiesOf('features', module)
                 if(gridSnap && step > 100) {
                     for(let u of elems.nodes()) {
                         yield positionGridSnap(u, gridX, gridY);
+                    }
+                }
+            },
+            configForceElectrical,
+        );
+        return (
+            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
+        );
+    })
+    .add('limp noodle', () => {
+        const fire: (idx: number) => {nodes: NodeSchema[], edges: EdgeSchema[]} = (idx: number) => {
+            return {
+                nodes: [
+                    {
+                        id: `n${idx}:group`,
+                        children: [
+                            `n${idx}:conv1`,
+                            `n${idx}:relu1`,
+                            `n${idx}:conv21`,
+                            `n${idx}:conv22`,
+                            `n${idx}:relu21`,
+                            `n${idx}:relu22`,
+                            `n${idx}:cat`,
+                        ]
+                    },
+                    {
+                        id: `n${idx}:conv1`,
+                        shape: {
+                            width: 50, height: 21,
+                        }
+                    },
+                    {
+                        id: `n${idx}:relu1`,
+                        shape: {
+                            width: 36, height: 21,
+                        }
+                    },
+                    {
+                        id: `n${idx}:conv21`,
+                        shape: {
+                            width: 50, height: 21,
+                        }
+                    },
+                    {
+                        id: `n${idx}:conv22`,
+                        shape: {
+                            width: 50, height: 21,
+                        }
+                    },
+                    {
+                        id: `n${idx}:relu21`,
+                        shape: {
+                            width: 36, height: 21,
+                        }
+                    },
+                    {
+                        id: `n${idx}:relu22`,
+                        shape: {
+                            width: 36, height: 21,
+                        }
+                    },
+                    {
+                        id: `n${idx}:cat`,
+                        shape: {
+                            width: 71, height: 21,
+                        }
+                    }
+                ],
+                edges: [
+                    {
+                        id: `${idx}:c1r1`,
+                        source: {
+                            id: `n${idx}:conv1`
+                        },
+                        target: {
+                            id: `n${idx}:relu1`
+                        }
+                    },
+                    {
+                        id: `${idx}:r1c21`,
+                        source: {
+                            id: `n${idx}:relu1`
+                        },
+                        target: {
+                            id: `n${idx}:conv21`
+                        }
+                    },
+                    {
+                        id: `${idx}:r1c22`,
+                        source: {
+                            id: `n${idx}:relu1`
+                        },
+                        target: {
+                            id: `n${idx}:conv22`
+                        }
+                    },
+                    {
+                        id: `${idx}:c21r21`,
+                        source: {
+                            id: `n${idx}:conv21`
+                        },
+                        target: {
+                            id: `n${idx}:relu21`
+                        }
+                    },
+                    {
+                        id: `${idx}:c22r22`,
+                        source: {
+                            id: `n${idx}:conv22`
+                        },
+                        target: {
+                            id: `n${idx}:relu22`
+                        }
+                    },
+                    {
+                        id: `${idx}:r21cat`,
+                        source: {
+                            id: `n${idx}:relu21`
+                        },
+                        target: {
+                            id: `n${idx}:cat`
+                        }
+                    },
+                    {
+                        id: `${idx}:r22cat`,
+                        source: {
+                            id: `n${idx}:relu22`
+                        },
+                        target: {
+                            id: `n${idx}:cat`
+                        }
+                    },
+                ]
+            }
+        }
+        const nodeSchemas = [...fire(0).nodes, ...fire(1).nodes, ...fire(2).nodes, ...fire(3).nodes, ]; //...fire(4).nodes, ...fire(5).nodes];
+        const edgeSchemas = [...fire(0).edges, ...fire(1).edges, ...fire(2).edges, ...fire(3).edges, ]; // ...fire(4).edges, ...fire(5).edges];
+        // nodeSchemas.push({
+        //     id: "maxpool",
+        //     shape: {
+        //         width: 71,
+        //         height: 21,
+        //     }
+        // });
+        edgeSchemas.push({
+            id: "0:cat1:1conv1",
+            source: {
+                id: "n0:cat",
+            },
+            target: {
+                id: "n1:conv1",
+            },
+        });
+        edgeSchemas.push({
+            id: "1:cat1:2conv1",
+            source: {
+                id: "n1:cat",
+            },
+            target: {
+                id: "n2:conv1",
+            },
+        })
+        edgeSchemas.push({
+            id: "2:cat1:3conv1",
+            source: {
+                id: "n2:cat",
+            },
+            target: {
+                id: "n3:conv1",
+            },
+        })
+        // edgeSchemas.push({
+        //     id: "3:cat1:4conv1",
+        //     source: {
+        //         id: "n3:cat",
+        //     },
+        //     target: {
+        //         id: "n4:conv1",
+        //     },
+        // })
+        // edgeSchemas.push({
+        //     id: "3:cat1:maxpool",
+        //     source: {
+        //         id: "n3:cat",
+        //     },
+        //     target: {
+        //         id: "maxpool",
+        //     },
+        // })
+        // edgeSchemas.push({
+        //     id: "maxpool:4conv1",
+        //     source: {
+        //         id: "maxpool",
+        //     },
+        //     target: {
+        //         id: "n4:conv1",
+        //     },
+        // })
+        // edgeSchemas.push({
+        //     id: "4:cat1:5conv1",
+        //     source: {
+        //         id: "n4:cat",
+        //     },
+        //     target: {
+        //         id: "n5:conv1",
+        //     },
+        // })
+        const [nodes, edges] = fromSchema(nodeSchemas, edgeSchemas);
+        const elems = new StructuredStorage(nodes, edges);
+        const shortestPath = elems.shortestPaths();
+        const idealLength = number('ideal length', 30);
+        const flowSpacing = number('flow spacing', 30);
+        const layout = new ForceConstraintLayout(
+            elems,
+            function* (elems) {
+                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
+            },
+            function* (elems, step) {
+                yield* constrainNodes(elems as StructuredStorage, step);
+
+                console.log('foo');
+                if (step > 0) {
+                    for(let { source, target } of elems.edges()) {
+                        const offset = (source.node.shape.height + target.node.shape.height) / 2;
+                        const portLocations: ["south", "north"] = ['south', 'north'];
+                        const flowAxis: [number, number] = [0, 1];
+                        yield constrainOffset(source.node.center, target.node.center, '>=', flowSpacing + offset, flowAxis);
+                        source.node.ports[source.port].location = portLocations[0];  // TODO: Remove this lol!
+                        target.node.ports[target.port].location = portLocations[1];
                     }
                 }
             },
