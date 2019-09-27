@@ -51,27 +51,41 @@ export class Graph extends React.Component<GraphProps, GraphState> {
             bounds: storage.bounds(),
             drag: undefined,
         };
-        if(animated) layout.onStep((elems) => {
-            this.setState({
-                nodes: elems.nodes(),
-                edges: elems.edges(),
-                bounds: elems.bounds(),
+        if(animated) {
+            // Animated graphs should repeatedly stop after after every step in order to give React
+            // time to rerender. This will continue until all iterations are done.
+            layout.onStep((elems) => {
+                this.setState({
+                    nodes: elems.nodes(),
+                    edges: elems.edges(),
+                    bounds: elems.bounds(),
+                });
+                setTimeout(() => layout.start(), kAnimationTick);
+                return false;
             });
-            setTimeout(() => layout.start(), kAnimationTick);
-            return false;
-        });
-        layout.onEnd((elems) => {
-            this.setState({
-                nodes: elems.nodes(),
-                edges: elems.edges(),
-                bounds: elems.bounds(),
+        } else {
+            // Unanimated graphs should only update state after the initial layout ends, and on
+            // every step afterwards, when the user manipulates the graph.
+            layout.onEnd((elems) => {
+                this.setState({
+                    nodes: elems.nodes(),
+                    edges: elems.edges(),
+                    bounds: elems.bounds(),
+                });
+                layout.onStep((elems) => {
+                    this.setState({
+                        nodes: elems.nodes(),
+                        edges: elems.edges(),
+                        bounds: elems.bounds(),
+                    });
+                    return true;
+                });
             });
-        });
+        }
     }
     componentDidMount() {
         const { layout } = this.props;
-        console.warn('MOUNTED');
-        layout.start();
+        setTimeout(() => layout.start(), 0);
     }
 
     onMouseDown = (node: Node, x: number, y: number) => {
@@ -118,8 +132,12 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         setTimeout(() => {
             this.props.layout.step();
             this.forceUpdate();
-            this.doLayout(steps-1);
-        }, 0);
+            if(this.state.drag === undefined) {
+                this.doLayout(steps-1);
+            } else {
+                this.doLayout(kLayoutSteps);
+            }
+        }, kAnimationTick);
     }
 
     render() {

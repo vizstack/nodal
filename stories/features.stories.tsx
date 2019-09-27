@@ -26,7 +26,7 @@ import {
     constrainOffset,
     constrainAngle,
     BasicOptimizer,
-    TrustRegionOptimizer,
+    EnergyOptimizer,
     Vector
 } from '../src';
 import { Graph } from './Graph';
@@ -60,9 +60,9 @@ function* forceSpringModel(
             const idealDistance = idealLength * uvPath;
             const actualDistance = u.center.distanceTo(v.center);
             // const actualDistance = separation({ center: u.center, width: u.shape.width, height: u.shape.height}, { center: v.center, width: v.shape.width, height: v.shape.height});
-            if(elems.existsEdge(u, v, true) && actualDistance > idealLength) {
+            if(elems.existsEdge(u, v, true) && actualDistance > idealDistance) {
                 // Attractive force between edges if too far.
-                const delta = actualDistance - idealLength;
+                const delta = actualDistance - idealDistance;
                 yield forcePairwiseNodes(u, v, [-wu*delta, -wv*delta]);
             } else {
                 // Repulsive force between node pairs if too close.
@@ -91,7 +91,7 @@ function* constrainNodes(elems: StructuredStorage, step: number) {
 
 const configForceElectrical = {
     numSteps: 200, numConstraintIters: 5, numForceIters: 5,
-    forceOptimizer: new TrustRegionOptimizer({ lrInitial: 0.8, lrMax: 0.8, lrMin: 0.001, adaption: 0.99 })
+    forceOptimizer: new EnergyOptimizer({ lrInitial: 0.8, lrMax: 0.8, lrMin: 0.01  })
 };
 
 storiesOf('features', module)

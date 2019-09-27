@@ -1,4 +1,4 @@
-import { Optimizer, BasicOptimizer, TrustRegionOptimizer, Gradient } from '../optim';
+import { Optimizer, BasicOptimizer, EnergyOptimizer, Gradient } from '../optim';
 import { Storage } from './storage';
 
 /**
@@ -52,8 +52,7 @@ export class ForceConstraintLayout extends Layout {
             numSteps = 10,
             numForceIters = 1,
             numConstraintIters = 10,
-            // forceOptimizer = new TrustRegionOptimizer(),
-            forceOptimizer = new BasicOptimizer(1),
+            forceOptimizer = new EnergyOptimizer(),
             constraintOptimizer = new BasicOptimizer(1),
             onStart = () => true,
             onStep = () => true,
