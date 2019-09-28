@@ -11,9 +11,9 @@ import {
 
 storiesOf('rendering', module)
     .add('simple nodes/edges', () => {
-        const [nodes, edges] = fromSchema([
-            { id: 'n0', shape: { width: 20, height: 20 }, center: { x: 10, y: 30 } },
-            { id: 'n1', shape: { width: 20, height: 40 }, center: { x: 60, y: 30 } },
+        const { nodes, edges } = fromSchema([
+            { id: 'n0', shape: { type: 'rectangle', width: 20, height: 20 }, center: { x: 10, y: 30 } },
+            { id: 'n1', shape: { type: 'rectangle', width: 20, height: 40 }, center: { x: 60, y: 30 } },
         ], [
             { id: 'e0->1', source: { id: 'n0' }, target: { id: 'n1' } },
         ]);

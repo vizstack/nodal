@@ -1,7 +1,7 @@
 import {
     constrainOffset,
     constrainDistance,
-    constrainAngle,
+    nudgeAngle,
 } from './gradients';
 import { Vector, Gradient } from '../optim';
 

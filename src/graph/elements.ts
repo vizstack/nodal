@@ -1,4 +1,6 @@
-import { Vector, Gradient } from '../optim';
+import { Vector } from '../optim';
+import { Shape, ShapeSchema, fromShapeSchema } from './shapes';
+
 import { mapValues } from 'lodash';
 import seedrandom from 'seedrandom';
 
@@ -17,21 +19,21 @@ export type EdgeId = string & { readonly brand?: unique symbol };
  * It may have 'children' which are contained within it (i.e. it may be a compound node). If so,
  * its actual 'shape' dimensions may be enlarged relative to its preferred dimensions.
  *
- * Its 'ports' are named points on the 'shape' boundary that an `Edge` may connect to. Optionally,
- * a port can be constrained to a particular 'location' on the 'shape' and/or a particular 'order'
+ * Its 'ports' are named points on the 'shape' that an `Edge` may connect to. Optionally, a port
+ * can be constrained to a particular 'location' on the 'shape' and/or a particular 'order'
  * relative to the other ports at its 'location'.
  */
 export type Node = {
     id: NodeId;
     center: Vector;
-    shape: { width: number, height: number };
+    shape: Shape;
     fixed: boolean;
     children: Node[];
     ports: Record<
         string,
         {
-            location?: 'north' | 'south' | 'east' | 'west';
-            order?: number;
+            location: 'north' | 'south' | 'east' | 'west' | 'boundary' | 'center';
+            order?: number;  // TODO: Type reflects that order only matters with specific side.
             point: Vector;
         }
     >;
@@ -50,14 +52,14 @@ export type Node = {
 export type NodeSchema = {
     id: NodeId;
     center?: { x: number, y: number };
-    shape?: { width: number, height: number },
+    shape?: ShapeSchema,
     fixed?: boolean,
     children?: NodeId[];
     ports?: Record<
         string,
         {
-            location?: 'north' | 'south' | 'east' | 'west';
-            order?: number;  // TODO: Update type to reflect order's dependency on location.
+            location?: 'north' | 'south' | 'east' | 'west' | 'boundary' | 'center';
+            order?: number;
             point?: { x: number, y: number };
         }
     >;
@@ -99,15 +101,29 @@ export type EdgeSchema = {
     meta?: Record<string, any>;
 };
 
+// Maximum distance to randomly initalize a port from its center.
 const kPortOffset = 0.2;
 
 /**
  * Transform lightweight `NodeSchema` and `EdgeSchema` data structures into `Node` and `Edge`
  * objects. See documentation for `NodeSchema` and `EdgeSchema` for more details.
  * @param nodeSchemas 
- * @param edgeSchemas 
+ * @param edgeSchemas
+ * @param config
+ *     `shapeCreator`: Function converting `ShapeSchema` to `Shape`.
+ *     `portLocation`: Location to assign to port if unspecified. (default: 'center')
  */
-export function fromSchema(nodeSchemas: NodeSchema[], edgeSchemas: EdgeSchema[]): [Node[], Edge[]] {
+export function fromSchema(
+    nodeSchemas: NodeSchema[],
+    edgeSchemas: EdgeSchema[],
+    {
+        shapeCreator = fromShapeSchema,
+        portLocation = 'center',
+    }: Partial<{
+        shapeCreator: (shapeSchema: ShapeSchema, center: Vector) => Shape,
+        portLocation: Node['ports'][keyof Node['ports']]['location']
+    }> = {},
+): { nodes: Node[], edges: Edge[]} {
     // Build nodes, initializing points and dimensions if needed.
     const nodeIdToIdx: Map<NodeId, number> = new Map();
     const nodes: Node[] = nodeSchemas.map(({ id, center, shape, fixed, children, ports, meta }, idx) => {
@@ -122,11 +138,11 @@ export function fromSchema(nodeSchemas: NodeSchema[], edgeSchemas: EdgeSchema[])
         return {
             id,
             center: centerpt,
-            shape: shape || { width: 0, height: 0 }, // TODO: Generalize.
+            shape: shapeCreator(shape || { type: 'rectangle', width: 0, height: 0 }, centerpt),
             fixed: fixed || false,
             children: (children as any) || [],
             ports: ports ? mapValues(ports, ({ location, order, point }) => ({
-                location,
+                location: location || portLocation,
                 order,
                 point: point ? new Vector(point.x, point.y) : new Vector(centerpt.x + kPortOffset*rand(), centerpt.y + kPortOffset*rand()),
             })) : {},
@@ -155,7 +171,7 @@ export function fromSchema(nodeSchemas: NodeSchema[], edgeSchemas: EdgeSchema[])
             const rand = seedrandom(`${edgeId}-${type}`);
             port = `_${edgeId}`;
             point = new Vector(node.center.x + kPortOffset*rand(), node.center.y + kPortOffset*rand());
-            node.ports[port] = { point };
+            node.ports[port] = { point, location: portLocation };
         }
         return { id: nodeId, port, node, point };
     }
@@ -177,15 +193,15 @@ export function fromSchema(nodeSchemas: NodeSchema[], edgeSchemas: EdgeSchema[])
         };
     });
 
-    return [nodes, edges];
+    return {nodes, edges};
 }
 
 // TODO: Allow taking any Iterator<Node>, Iterator<Edge>.
-export function toSchema(nodes: Node[], edges: Edge[]): [NodeSchema[], EdgeSchema[]] {
-    const nodeSchema = nodes.map((node) => ({
+export function toSchema(nodes: Node[], edges: Edge[]): { nodeSchemas: NodeSchema[], edgeSchemas: EdgeSchema[] } {
+    const nodeSchemas = nodes.map((node) => ({
         id: node.id,
         center: { x: node.center.x, y: node.center.y },
-        shape: node.shape,
+        shape: node.shape.toSchema(),
         fixed: node.fixed,
         children: node.children.map((child) => child.id),
         ports: Object.fromEntries(
@@ -193,7 +209,7 @@ export function toSchema(nodes: Node[], edges: Edge[]): [NodeSchema[], EdgeSchem
         ),
         meta: node.meta,
     }));
-    const edgeSchema = edges.map((edge) => ({
+    const edgeSchemas = edges.map((edge) => ({
         id: edge.id,
         source: { id: edge.source.id, port: edge.source.port },
         target: { id: edge.target.id, port: edge.target.port },
@@ -201,5 +217,5 @@ export function toSchema(nodes: Node[], edges: Edge[]): [NodeSchema[], EdgeSchem
         meta: edge.meta,
     }));
 
-    return [nodeSchema, edgeSchema]
+    return { nodeSchemas, edgeSchemas };
 }

@@ -160,13 +160,14 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         const compoundNodeComponents = [];
         for(let node of nodes) {
             if(node.children.length > 0) {
+                const { x, y, width, height } = node.shape.bounds();
                 compoundNodeComponents.push(
                     <g key={node.id} id={node.id}>
                         <rect
-                            x={node.center.x - node.shape.width / 2}
-                            y={node.center.y - node.shape.height / 2}
-                            width={node.shape.width}
-                            height={node.shape.height}
+                            x={x}
+                            y={y}
+                            width={width}
+                            height={height}
                             fill={nodeColor(node)}
                             stroke={Color.white}
                             strokeWidth={1.5}
@@ -205,13 +206,14 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         const simpleNodeComponents = [];
         for(let node of nodes) {
             if(node.children.length == 0) {
+                const { x, y, width, height } = node.shape.bounds();
                 simpleNodeComponents.push(
                     <g key={node.id} id={node.id}>
                         <rect
-                            x={node.center.x - node.shape.width / 2}
-                            y={node.center.y - node.shape.height / 2}
-                            width={node.shape.width}
-                            height={node.shape.height}
+                            x={x}
+                            y={y}
+                            width={width}
+                            height={height}
                             fill={nodeColor(node)}
                             stroke={Color.white}
                             strokeWidth={1}

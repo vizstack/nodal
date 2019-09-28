@@ -287,7 +287,7 @@ const edges = [
 ];
 
 parents.forEach((parent, child) => {
-    kGraphCompound.nodesChildren.push({ id: `n${child}`, shape: { width: kSize, height: kSize }, meta: { group: parent } });
+    kGraphCompound.nodesChildren.push({ id: `n${child}`, shape: { type: 'rectangle', width: kSize, height: kSize }, meta: { group: parent } });
     kGraphCompound.nodesParents[parent].children!.push(`n${child}`)
 });
 

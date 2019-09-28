@@ -1,10 +1,7 @@
 import { Vector, Gradient } from '../optim';
 
 /** A lightweight specification that is transformed into a `Shape`. */
-export type ShapeSchema = {
-    type: string,
-    preserve?: 'size' | 'ratio',
-}
+export type ShapeSchema<T extends Shape = Shape> = ReturnType<T['toSchema']>;
 
 /**
  * A `Shape` represents a convex boundary of a node. It has preferred dimensions, but these may be
@@ -44,7 +41,7 @@ export abstract class Shape {
      */
     public abstract constrainShapeWithin(
         shape: Shape,
-        config: Partial<{ masses: { shape: number, subshape: number }, expansion: number, offset: number }>
+        config?: Partial<{ masses: { shape: number, subshape: number }, expansion: number, offset: number }>
     ): Gradient[];
 
     /**
@@ -57,7 +54,7 @@ export abstract class Shape {
      */
     public abstract constrainPointWithin(
         point: Vector,
-        config: Partial<{ masses: { shape: number, point: number }, expansion: number, offset: number }>
+        config?: Partial<{ masses: { shape: number, point: number }, expansion: number, offset: number }>
     ): Gradient[];
 
     /**
@@ -69,13 +66,30 @@ export abstract class Shape {
      */
     public abstract constrainPointOnBoundary(
         point: Vector,
-        config: Partial<{ masses: { shape: number, point: number }, expansion: number, offset: number }>
+        config?: Partial<{ masses: { shape: number, point: number }, expansion: number, offset: number }>
     ): Gradient[];
 
     /**
      * Transforms this `Shape` to a `ShapeSchema`.
      */
-    public abstract toSchema(): ShapeSchema;
+    public abstract toSchema(): Record<string, any> & { type: string, preserve?: 'size' | 'ratio' };
+}
+
+export function fromShapeSchema(schema: ShapeSchema, center: Vector): Shape {
+    const { type, preserve } = schema;
+    switch(type) {
+        case 'rectangle': {
+            const { width, height } = schema as ShapeSchema<Rectangle>;
+            return new Rectangle(center, width, height, preserve);
+        }
+        case 'circle': {
+            const { radius } = schema as ShapeSchema<Circle>;
+            return new Circle(center, radius, preserve);
+        }
+        default: {
+            throw Error(`Unrecognized ShapeSchema type: ${type}`);
+        }
+    }
 }
 
 export class Rectangle extends Shape {
@@ -108,7 +122,7 @@ export class Rectangle extends Shape {
             const pt = intersectSegment(start, end, direction);
             if(pt !== undefined) return pt.add(this.center);
         }
-        throw Error(`No boundary point found: direction ${direction}, edges ${this._edges()}`);
+        throw Error(`No boundary point found: direction ${JSON.stringify(direction)}, edges ${JSON.stringify(this._edges())}`);
     }
 
     public support(direction: Vector) {
@@ -146,7 +160,7 @@ export class Rectangle extends Shape {
 
     public constrainPointOnBoundary(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
         const centerToPoint = (new Vector()).subVectors(point, this.center);
-        const boundary = this.boundary(centerToPoint, offset);
+        const boundary = this.boundary(centerToPoint, offset).sub(this.center);
         const boundaryToPointOffset = centerToPoint.length() - boundary.length();
         const pointDelta = -boundaryToPointOffset * (masses.shape / (masses.shape + masses.point));
         const shapeDelta = boundaryToPointOffset * (masses.point / (masses.shape + masses.point));
@@ -162,12 +176,10 @@ export class Rectangle extends Shape {
             this.center,
             centerToPoint.clone().multiplyScalar(centerDelta),
         );
+        // TODO: Preserve ratio, size, none
         const controlGrad = new Gradient(
             this.control,
-            (new Vector()).addVectors(
-                centerGrad.grad,
-                this.control.clone().multiplyScalar(boundaryDelta / boundary.length())
-            ),
+            this.control.clone().multiplyScalar(boundaryDelta / boundary.length())
         );
         return [pointGrad, centerGrad, controlGrad];
     }
@@ -175,7 +187,7 @@ export class Rectangle extends Shape {
     public toSchema() {
         const { preserve } = this;
         const { width, height } = this.bounds();
-        return { type: 'rectangle', preserve, width, height };
+        return { type: 'rectangle' as 'rectangle', preserve, width, height };
     }
 
     private _edges(offset: number = 0): Array<[Vector, Vector]> {
@@ -251,7 +263,7 @@ export class Circle extends Shape {
 
     public toSchema() {
         const { preserve } = this;
-        return { type: 'circle', preserve, radius: this.radius.x };
+        return { type: 'circle' as 'circle', preserve, radius: this.radius.x };
     }
 }
 

@@ -50,10 +50,11 @@ export class BasicStorage extends Storage {
         if(this._nodes.length == 0) return { x: 0, y: 0, X: 0, Y: 0, width: 0, height: 0 };
         let x = Number.POSITIVE_INFINITY, y = Number.POSITIVE_INFINITY, X = Number.NEGATIVE_INFINITY, Y = Number.NEGATIVE_INFINITY;
         this._nodes.forEach((node) => {
-            x = Math.min(x, node.center.x - node.shape.width / 2);
-            y = Math.min(y, node.center.y - node.shape.height / 2);
-            X = Math.max(X, node.center.x + node.shape.width / 2);
-            Y = Math.max(Y, node.center.y + node.shape.height / 2);
+            const bounds = node.shape.bounds();
+            x = Math.min(x, bounds.x);
+            y = Math.min(y, bounds.y);
+            X = Math.max(X, bounds.X);
+            Y = Math.max(Y, bounds.Y);
         });
         this._edges.forEach((edge) => {
             const xs = edge.path.map((pt) => pt.x);

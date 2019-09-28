@@ -14,14 +14,11 @@ import {
     StructuredStorage,
     ForceConstraintLayout,
     constrainDistance,
-    forcePairwisePower,
-    forcePairwise,
-    forcePairwiseNodes,
-    forceVector,
     fromSchema,
-    positionChildren,
-    positionPorts,
-    positionNoOverlap,
+    nudgePair,
+    constrainNodeChildren,
+    constrainNodePorts,
+    constrainNodeNonoverlap,
     constrainOffset,
     Optimizer,
     BasicOptimizer,
@@ -38,7 +35,7 @@ import { kGraphCompound } from './schemas-compound';
 
 storiesOf('force models', module)
     .add('spring-electrical w/ simple nodes', () => {
-        const [nodes, edges] = fromSchema(kGraphSimple.nodes, kGraphSimple.edges);
+        const { nodes, edges } = fromSchema(kGraphSimple.nodes, kGraphSimple.edges);
         const elems = new BasicStorage(nodes, edges);
         const numSteps = number('# timesteps', 100, { range: true, min: 0, max: 200, step: 1 });
         const repulsive = number('repulsive', 50);
@@ -54,19 +51,24 @@ storiesOf('force models', module)
                         if(u.fixed && v.fixed) continue;
                         // TODO: What if only one is fixed?
                         // Repulsive force between nodes (hyperbolic).
-                        yield forcePairwisePower(u, v, { power: -1, scalar: repulsive });
+                        const dist = (new Vector()).subVectors(v.center, u.center).length();
+                        yield nudgePair(u.center, v.center, repulsive * Math.pow(dist, -1))
+                        // yield forcePairwisePower(u, v, { power: -1, scalar: repulsive });
                     }
                 }
                 for(let e of elems.edges()) {
                     // Attractive force along edges (linear).
-                    yield forcePairwisePower(
-                        e.source.node, e.target.node, { power: 1, scalar: -attractive },
-                    );
+                    const p = e.source.node.center, q = e.target.node.center;
+                    const dist = (new Vector()).subVectors(p, q).length();
+                    yield nudgePair(p, q, -attractive * Math.pow(dist, 1))
+                    // yield forcePairwisePower(
+                    //     e.source.node, e.target.node, { power: 1, scalar: -attractive },
+                    // );
                 }
             },
             function* (elems) {
                 for (let u of elems.nodes()) {
-                    yield positionPorts(u);
+                    yield constrainNodePorts(u);
                 }
             },
             { numSteps, numConstraintIters: 3, forceOptimizer: new EnergyOptimizer({ lrInitial: 0.4, lrMax: 0.6, lrMin: 0.001 }) }
@@ -77,7 +79,7 @@ storiesOf('force models', module)
         );
     })
     .add('spring-electrical w/ compound nodes', () => {
-        const [nodes, edges] = fromSchema([...kGraphCompound.nodesChildren, ...kGraphCompound.nodesParents], kGraphCompound.edges);
+        const { nodes, edges } = fromSchema([...kGraphCompound.nodesChildren, ...kGraphCompound.nodesParents], kGraphCompound.edges);
         const elems = new StructuredStorage(nodes, edges);
         const numSteps = number('# timesteps', 100, { range: true, min: 0, max: 200, step: 1 });
         const repulsive = number('repulsive', 50);
@@ -93,22 +95,28 @@ storiesOf('force models', module)
                     // Compound nodes should pull children closer.
                     if(u.children.length > 0) {
                         for(let child of u.children) {
-                            yield forcePairwisePower(u, child, { power: 1, scalar: -compactness});
+                            const dist = (new Vector()).subVectors(child.center, u.center).length();
+                            yield nudgePair(u.center, child.center, -compactness*dist)
                         };
                     }
 
                     for(let v of elems.nodes()) {
                         if(!visited.has(v)) {
                             // Repulsive force between nodes (hyperbolic).
-                            yield forcePairwisePower(u, v, { power: -1, scalar: repulsive });
+                            const dist = (new Vector()).subVectors(v.center, u.center).length();
+                            yield nudgePair(u.center, v.center, repulsive * Math.pow(dist, -1))
+                            // yield forcePairwisePower(u, v, { power: -1, scalar: repulsive });
                         }
                     }
                 }
                 for(let e of elems.edges()) {
                     // Attractive force along edges (linear).
-                    yield forcePairwisePower(
-                            e.source.node, e.target.node, { power: 1, scalar: -attractive },
-                        );;
+                    const p = e.source.node.center, q = e.target.node.center;
+                    const dist = (new Vector()).subVectors(p, q).length();
+                    yield nudgePair(p, q, -attractive * Math.pow(dist, 1))
+                    // yield forcePairwisePower(
+                    //         e.source.node, e.target.node, { power: 1, scalar: -attractive },
+                    //     );;
                 }
             },
             function* (elems, step) {
@@ -116,12 +124,12 @@ storiesOf('force models', module)
                     // Apply no-overlap to all siblings.
                     if(step > 15) {
                         for(let sibling of (elems as StructuredStorage).siblings(u)) {
-                            yield positionNoOverlap(u, sibling);
+                            yield constrainNodeNonoverlap(u, sibling);
                         }
                     }
 
-                    yield positionChildren(u);
-                    yield positionPorts(u);
+                    yield constrainNodeChildren(u);
+                    yield constrainNodePorts(u);
                 }
             },
             { numSteps, numConstraintIters: 3, forceOptimizer: new EnergyOptimizer({ lrInitial: 0.4, lrMax: 0.6, lrMin: 0.001 }) }
@@ -133,8 +141,8 @@ storiesOf('force models', module)
         );
     })
     .add('spring w/ simple nodes', () => {
-        // const [nodes, edges] = fromSchema(kGraphFive.nodesEqual, kGraphFive.edgesAcyclic);
-        const [nodes, edges] = fromSchema(kGraphSimple.nodes, kGraphSimple.edges);
+        // const { nodes, edges } = fromSchema(kGraphFive.nodesEqual, kGraphFive.edgesAcyclic);
+        const { nodes, edges } = fromSchema(kGraphSimple.nodes, kGraphSimple.edges);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const numSteps = number('# timesteps', 100, { range: true, min: 0, max: 200, step: 1 });
@@ -170,18 +178,18 @@ storiesOf('force models', module)
                         if((elems as StructuredStorage).existsEdge(u, v, true) && actualDistance > idealLength) {
                             // Attractive force between edges if too far.
                             const delta = actualDistance - idealLength;
-                            yield forcePairwiseNodes(u, v, [-wu*delta, -wv*delta]);
+                            yield nudgePair(u.center, v.center, [-wu*delta, -wv*delta]);
                         } else if(actualDistance < idealDistance) {
                             // Repulsive force between node pairs if too close.
                             const delta = (idealDistance - actualDistance) / Math.pow(uvPath, 2);
-                            yield forcePairwiseNodes(u, v, [wu*delta, wv*delta]);
+                            yield nudgePair(u.center, v.center, [wu*delta, wv*delta]);
                         }
                     }
                 }
             },
             function* (elems) {
                 for (let u of elems.nodes()) {
-                    yield positionPorts(u);
+                    yield constrainNodePorts(u);
                 }
             },
             { numSteps, numConstraintIters: 5, numForceIters: 5, forceOptimizer }
@@ -192,7 +200,7 @@ storiesOf('force models', module)
         );
     })
     .add('spring w/ compound nodes', () => {
-        const [nodes, edges] = fromSchema([...kGraphCompound.nodesChildren, ...kGraphCompound.nodesParents], kGraphCompound.edges);
+        const { nodes, edges } = fromSchema([...kGraphCompound.nodesChildren, ...kGraphCompound.nodesParents], kGraphCompound.edges);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const numSteps = number('# timesteps', 100, { range: true, min: 0, max: 200, step: 1 });
@@ -216,7 +224,7 @@ storiesOf('force models', module)
                     // Compound nodes should pull children closer.
                     if(u.children.length > 0) {
                         for(let child of u.children) {
-                            yield forcePairwiseNodes(u, child, -compactness*(u.center.distanceTo(child.center)));
+                            yield nudgePair(u.center, child.center, -compactness*(u.center.distanceTo(child.center)));
                         };
                     }
                     for(let v of elems.nodes()) {
@@ -233,11 +241,11 @@ storiesOf('force models', module)
                         if((elems as StructuredStorage).existsEdge(u, v, true) && actualDistance > idealLength) {
                             // Attractive force between edges if too far.
                             const delta = actualDistance - idealLength;
-                            yield forcePairwiseNodes(u, v, [-wu*delta, -wv*delta]);
+                            yield nudgePair(u.center, v.center, [-wu*delta, -wv*delta]);
                         } else if(actualDistance < idealDistance) {
                             // Repulsive force between node pairs if too close.
                             const delta = (idealDistance - actualDistance) / Math.pow(uvPath, 2);
-                            yield forcePairwiseNodes(u, v, [wu*delta, wv*delta]);
+                            yield nudgePair(u.center, v.center, [wu*delta, wv*delta]);
                         }
                     }
                 }
@@ -247,12 +255,12 @@ storiesOf('force models', module)
                     // Apply no-overlap to all siblings.
                     if(step > 20) {
                         for(let sibling of (elems as StructuredStorage).siblings(u)) {
-                            yield positionNoOverlap(u, sibling);
+                            yield constrainNodeNonoverlap(u, sibling);
                         }
                     }
 
-                    yield positionChildren(u);
-                    yield positionPorts(u);
+                    yield constrainNodeChildren(u);
+                    yield constrainNodePorts(u);
                 }
             },
             { numSteps, numConstraintIters: 5, numForceIters: 5, forceOptimizer }
@@ -264,7 +272,7 @@ storiesOf('force models', module)
         );
     })
     .add('spring w/ simple nodes (second-order)', () => {
-        const [nodes, edges] = fromSchema(kGraphSimple.nodes, kGraphSimple.edges);
+        const { nodes, edges } = fromSchema(kGraphSimple.nodes, kGraphSimple.edges);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const numSteps = number('# timesteps', 100, { range: true, min: 0, max: 200, step: 1 });
@@ -293,18 +301,18 @@ storiesOf('force models', module)
                         if((elems as StructuredStorage).existsEdge(u, v, true) && actualDistance > idealDistance) {
                             // Attractive force between edge pairs if too far.
                             let delta = (actualDistance - idealDistance);
-                            yield forcePairwiseNodes(u, v, [-wu*delta, -wv*delta]);
+                            yield nudgePair(u.center, v.center, [-wu*delta, -wv*delta]);
                         } else if(actualDistance < idealDistance) {
                             // Repulsive force between any pair if too close.
                             let delta = (idealDistance - actualDistance) / Math.pow(uvPath, 2);
-                            yield forcePairwiseNodes(u, v, [wu*delta, wv*delta]);
+                            yield nudgePair(u.center, v.center, [wu*delta, wv*delta]);
                         }
                     }
                 }
             },
             function* (elems) {
                 for (let u of elems.nodes()) {
-                    yield positionPorts(u);
+                    yield constrainNodePorts(u);
                 }
             },
             { numSteps, numConstraintIters: 5, numForceIters: 5, forceOptimizer }

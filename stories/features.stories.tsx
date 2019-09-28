@@ -13,24 +13,23 @@ import {
     StructuredStorage,
     ForceConstraintLayout,
     constrainDistance,
-    forcePairwisePower,
-    forcePairwise,
-    forcePairwiseNodes,
-    forceVector,
-    positionChildren,
-    positionPorts,
-    positionAlignment,
-    positionGridSnap,
-    positionSeparation,
-    positionNoOverlap,
+    nudgePair,
+    nudgePoint,
+    constrainNodeChildren,
+    constrainNodePorts,
+    constrainNodeAlignment,
+    constrainNodeGrid,
+    constrainNodeSeparation,
+    constrainNodeNonoverlap,
     constrainOffset,
-    constrainAngle,
+    nudgeAngle,
     BasicOptimizer,
     EnergyOptimizer,
     Vector
 } from '../src';
 import { Graph } from './Graph';
 import { kGraphTwo } from './schemas-two';
+import { Rectangle } from '../src/graph/shapes';
 
 function* forceSpringModel(
     elems: StructuredStorage,
@@ -44,14 +43,13 @@ function* forceSpringModel(
         // Compound nodes should pull children closer.
         if(u.children.length > 0) {
             for(let child of u.children) {
-                yield forcePairwiseNodes(u, child, -compactness*(u.center.distanceTo(child.center)));
+                yield nudgePair(u.center, child.center, -compactness*(u.center.distanceTo(child.center)));
             };
         }
         for(let v of elems.nodes()) {
             if(visited.has(v)) continue;
-            // if(u.fixed && v.fixed) continue;
-            // const [wu, wv] = [u.fixed ? 0 : 1, v.fixed ? 0 : 1];
-            const [wu, wv] = [1, 1];
+            if(u.fixed && v.fixed) continue;
+            const [wu, wv] = [u.fixed ? 0 : 1, v.fixed ? 0 : 1];
 
             // Spring force. Attempt to reach ideal distance between all pairs,
             // except unconnected pairs that are farther away than ideal.
@@ -63,13 +61,13 @@ function* forceSpringModel(
             if(elems.existsEdge(u, v, true) && actualDistance > idealDistance) {
                 // Attractive force between edges if too far.
                 const delta = actualDistance - idealDistance;
-                yield forcePairwiseNodes(u, v, [-wu*delta, -wv*delta]);
+                yield nudgePair(u.center, v.center, [-wu*delta, -wv*delta]);
             } else {
                 // Repulsive force between node pairs if too close.
                 // console.log("repulsive", actualDistance, idealDistance);
                 if(actualDistance < idealDistance) {
                     const delta = idealDistance - actualDistance;
-                    yield forcePairwiseNodes(u, v, [wu*delta, wv*delta]);
+                    yield nudgePair(u.center, v.center, [wu*delta, wv*delta]);
                 }
             }
         }
@@ -81,22 +79,22 @@ function* constrainNodes(elems: StructuredStorage, step: number) {
         // Apply no-overlap to all siblings.
         if(step > 15) {
             for(let sibling of elems.siblings(u)) {
-                yield positionNoOverlap(u, sibling);
+                yield constrainNodeNonoverlap(u, sibling);
             }
         }
-        yield positionChildren(u);
-        yield positionPorts(u);
+        yield constrainNodeChildren(u);
+        yield constrainNodePorts(u);
     }
 }
 
 const configForceElectrical = {
-    numSteps: 200, numConstraintIters: 5, numForceIters: 5,
+    numSteps: 10, numConstraintIters: 5, numForceIters: 5,
     forceOptimizer: new EnergyOptimizer({ lrInitial: 0.8, lrMax: 0.8, lrMin: 0.01  })
 };
 
 storiesOf('features', module)
     .add('simple nodes', () => {
-        const [nodes, edges] = fromSchema(kGraphFive.nodesEqual, kGraphFive.edgesAcyclic);
+        const { nodes, edges } = fromSchema(kGraphFive.nodesEqual, kGraphFive.edgesAcyclic);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
@@ -115,7 +113,7 @@ storiesOf('features', module)
         );
     })
     .add('simple nodes (unequal)', () => {
-        const [nodes, edges] = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesAcyclic);
+        const { nodes, edges } = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesAcyclic);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
@@ -134,7 +132,7 @@ storiesOf('features', module)
         );
     })
     .add('disconnected components', () => {
-        const [nodes, edges] = fromSchema(kGraphFive.nodesUnequal, []);
+        const { nodes, edges } = fromSchema(kGraphFive.nodesUnequal, []);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
@@ -153,7 +151,7 @@ storiesOf('features', module)
         );
     })
     .add('compound nodes', () => {
-        const [nodes, edges] = fromSchema(kGraphFive.nodesNested, kGraphFive.edgesAcyclic);
+        const { nodes, edges } = fromSchema(kGraphFive.nodesNested, kGraphFive.edgesAcyclic);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
@@ -173,7 +171,7 @@ storiesOf('features', module)
         );
     })
     .add('unidirectional flow', () => {
-        const [nodes, edges] = fromSchema(kGraphFive.nodesEqual, kGraphFive.edgesAcyclic);
+        const { nodes, edges } = fromSchema(kGraphFive.nodesEqual, kGraphFive.edgesAcyclic);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
@@ -199,7 +197,7 @@ storiesOf('features', module)
         );
     })
     .add('multidirectional flow', () => {
-        const [nodes, edges] = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesTree);
+        const { nodes, edges } = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesTree);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
@@ -233,19 +231,19 @@ storiesOf('features', module)
     .add('named ports', () => {
         console.log('named ports');
         const nodesUnequalWithPorts = kGraphFive.nodesUnequal.map((n) => Object.assign({ ports: {
-            e1: { location: 'east', order: 1 }, e2: { location: 'east', order: 2 },
+            e1: { location: 'east', order: 1 },
             w1: { location: 'west', order: 1 }, w2: { location: 'west', order: 2 },
-            n1: { location: 'north', order: 1 }, n2: { location: 'north', order: 2 },
+            n1: { location: 'north', order: 1 },
             s1: { location: 'south', order: 1 }, s2: { location: 'south', order: 2 },
         } }, n))
         const edgesTreeWithPorts: EdgeSchema[] = [
             { id: 'e0->1', source: { id: 'n0', port: 'e1' }, target: { id: 'n1', port: 'w1' } },
             { id: 'e1->2:1', source: { id: 'n1', port: 's1' }, target: { id: 'n2', port: 'n1' } },
-            { id: 'e1->2:2', source: { id: 'n1', port: 's2' }, target: { id: 'n2', port: 'n2' } },
-            { id: 'e2->3', source: { id: 'n2' }, target: { id: 'n3' } },
-            { id: 'e2->4', source: { id: 'n2' }, target: { id: 'n4' } },
+            { id: 'e1->2:2', source: { id: 'n1', port: 's2' }, target: { id: 'n2', port: 'n1' } },
+            { id: 'e2->3', source: { id: 'n2', port: 'e1' }, target: { id: 'n3', port: 'w1' } },
+            { id: 'e2->4', source: { id: 'n2', port: 's1' }, target: { id: 'n4', port: 'n1' } },
         ];
-        const [nodes, edges] = fromSchema(nodesUnequalWithPorts, edgesTreeWithPorts);
+        const { nodes, edges } = fromSchema(nodesUnequalWithPorts, edgesTreeWithPorts);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
@@ -277,7 +275,7 @@ storiesOf('features', module)
         );
     })
     .add('oriented edges', () => {
-        const [nodes, edges] = fromSchema(kGraphTwo.nodes, kGraphTwo.edges);
+        const { nodes, edges } = fromSchema(kGraphTwo.nodes, kGraphTwo.edges);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 100);
@@ -289,7 +287,7 @@ storiesOf('features', module)
                 yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
                 
                 for(let edge of elems.edges()) {
-                    yield constrainAngle(edge.source.node.center, edge.target.node.center, orientationAngle, orientationStrength);
+                    yield nudgeAngle(edge.source.node.center, edge.target.node.center, orientationAngle, orientationStrength);
                 }
             },
             function* (elems, step) {
@@ -302,7 +300,7 @@ storiesOf('features', module)
         );
     })
     .add('alignment', () => {
-        const [nodes, edges] = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesTree);
+        const { nodes, edges } = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesTree);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
@@ -315,7 +313,7 @@ storiesOf('features', module)
                 yield* constrainNodes(elems as StructuredStorage, step);
 
                 function align(u: NodeId, v: NodeId, axis: [number, number]) {
-                    return positionAlignment([elems.node(u), elems.node(v)], axis);
+                    return constrainNodeAlignment([elems.node(u), elems.node(v)], axis);
                 }
 
                 yield align('n0', 'n1', [1, 0]);
@@ -331,7 +329,7 @@ storiesOf('features', module)
     })
     .add('grid snap', () => {
         // TODO: Need global grid snap transformation, so nudges don't cause overlap.
-        const [nodes, edges] = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesAcyclic);
+        const { nodes, edges } = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesAcyclic);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
@@ -347,7 +345,7 @@ storiesOf('features', module)
                 yield* constrainNodes(elems as StructuredStorage, step);
                 if(gridSnap && step > 100) {
                     for(let u of elems.nodes()) {
-                        yield positionGridSnap(u, gridX, gridY);
+                        yield constrainNodeGrid(u, gridX, gridY);
                     }
                 }
             },
@@ -376,43 +374,43 @@ storiesOf('features', module)
                     {
                         id: `n${idx}:conv1`,
                         shape: {
-                            width: 50, height: 21,
+                            type: 'rectangle', width: 50, height: 21,
                         }
                     },
                     {
                         id: `n${idx}:relu1`,
                         shape: {
-                            width: 36, height: 21,
+                            type: 'rectangle', width: 36, height: 21,
                         }
                     },
                     {
                         id: `n${idx}:conv21`,
                         shape: {
-                            width: 50, height: 21,
+                            type: 'rectangle', width: 50, height: 21,
                         }
                     },
                     {
                         id: `n${idx}:conv22`,
                         shape: {
-                            width: 50, height: 21,
+                            type: 'rectangle', width: 50, height: 21,
                         }
                     },
                     {
                         id: `n${idx}:relu21`,
                         shape: {
-                            width: 36, height: 21,
+                            type: 'rectangle', width: 36, height: 21,
                         }
                     },
                     {
                         id: `n${idx}:relu22`,
                         shape: {
-                            width: 36, height: 21,
+                            type: 'rectangle', width: 36, height: 21,
                         }
                     },
                     {
                         id: `n${idx}:cat`,
                         shape: {
-                            width: 71, height: 21,
+                            type: 'rectangle', width: 71, height: 21,
                         }
                     }
                 ],
@@ -555,7 +553,7 @@ storiesOf('features', module)
         //         id: "n5:conv1",
         //     },
         // })
-        const [nodes, edges] = fromSchema(nodeSchemas, edgeSchemas);
+        const { nodes, edges } = fromSchema(nodeSchemas, edgeSchemas);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
@@ -571,7 +569,9 @@ storiesOf('features', module)
                 console.log('foo');
                 if (step > 0) {
                     for(let { source, target } of elems.edges()) {
-                        const offset = (source.node.shape.height + target.node.shape.height) / 2;
+                        const sourceShape = (source.node.shape as Rectangle).toSchema();
+                        const targetShape = (target.node.shape as Rectangle).toSchema();
+                        const offset = (sourceShape.height + targetShape.height) / 2;
                         const portLocations: ["south", "north"] = ['south', 'north'];
                         const flowAxis: [number, number] = [0, 1];
                         yield constrainOffset(source.node.center, target.node.center, '>=', flowSpacing + offset, flowAxis);

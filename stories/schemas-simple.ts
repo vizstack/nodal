@@ -94,7 +94,7 @@ const kGraphSimple: {
 };
 
 for(let n = 0; n < numNodes; n++) {
-    kGraphSimple.nodes.push({ id: `n${n}`, shape: { width: kSize, height: kSize } });
+    kGraphSimple.nodes.push({ id: `n${n}`, shape: { type: 'rectangle', width: kSize, height: kSize } });
 }
 
 edges.forEach(({ s, t }) => {
