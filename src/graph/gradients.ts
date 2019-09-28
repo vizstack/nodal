@@ -293,30 +293,29 @@ export function constrainNodePorts(
         }
 
         // Constrain port to `Shape` boundary.
-        grads.push(u.shape.constrainPointOnBoundary(point, { masses: { shape: 10, point: 1 }, offset: 10 }));  // TODO: Add masses.
-        // TODO: Prevent jitter if super small. --> There's no jitter with offset
-        // TODO: Prevent shift when have offset, something is being calculated wrong.
+        grads.push(u.shape.constrainPointOnBoundary(point, { masses: { shape: 10, point: 1 }, offset: 0 }));  // TODO: Add masses.
 
         // Attract ports on boundary towards side center.
         switch(side) {
             case 'north':
-                grads.push(nudgePair(new Vector(cx, y), point, [0, -centering]));
+                // Scale the boundary coordinates by a close-to-1 constant so that the ports do not exactly
+                // align with them and cause jitter
+                grads.push(nudgePair(new Vector(cx, y * 0.9), point, [0, -centering]));
                 break;
             case 'south':
-                grads.push(nudgePair(new Vector(cx, Y), point, [0, -centering]));
+                grads.push(nudgePair(new Vector(cx, Y * 0.9), point, [0, -centering]));
                 break;
             case 'west':
-                grads.push(nudgePair(new Vector(x, cy), point, [0, -centering]));
+                grads.push(nudgePair(new Vector(x * 0.9, cy), point, [0, -centering]));
                 break;
             case 'east':
-                grads.push(nudgePair(new Vector(X, cy), point, [0, -centering]));
+                grads.push(nudgePair(new Vector(X * 0.9, cy), point, [0, -centering]));
                 break;
         }
         
         // Maintain separation gap between ports.
         // TODO: Make into a scheduled value.
-        // ports.forEach(({ point: p  }) => grads.push(constrainDistance(point, p, '>=', gap)));
-        // TODO: Ignore center
+        ports.filter(({location}) => location !== 'center').forEach(({ point: p  }) => grads.push(constrainDistance(point, p, '>=', gap)));
         
         // Only location zones and ordering for more specific sides.
         if(location === 'boundary') return;
