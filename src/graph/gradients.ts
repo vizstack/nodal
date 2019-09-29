@@ -203,36 +203,17 @@ export function nudgePoint(
 }
 
 /**
- *  
+ * Constrain `u`'s children to be contained within itself, expansing its boundaries if necessary.
  * @param u 
+ *      Node with children to constrain.
  * @param padding 
+ *      Spacing inside the node's boundary.
  */
 export function constrainNodeChildren(
     u: Node,
     padding: number = 0,
 ): Gradient[] {
-    // TODO: Based on shape, which has different borders, give to shape to produce constraints.
-
-    // Compute new parent bounds.
-    // if(u.children.length > 0) {
-    //     const box = new Box2();
-    //     u.children.forEach((child) => {
-    //         box.expandByPoint(new Vector(
-    //             child.center.x - child.shape.width /2 - padding,
-    //             child.center.y - child.shape.height/2 - padding,
-    //         ));
-    //         box.expandByPoint(new Vector(
-    //             child.center.x + child.shape.width /2 + padding,
-    //             child.center.y + child.shape.height/2 + padding,
-    //         ))
-    //     });
-    //     box.getCenter(u.center);
-    //     const dims = new Vector();
-    //     box.getSize(dims);
-    //     u.shape.width = dims.x;
-    //     u.shape.height = dims.y;
-    // }
-    return [];
+    return u.children.map((child) => u.shape.constrainShapeWithin(child.shape, { offset: -padding })).flat();
 }
 
 // Helper type of port.
@@ -293,7 +274,7 @@ export function constrainNodePorts(
         }
 
         // Constrain port to `Shape` boundary.
-        grads.push(u.shape.constrainPointOnBoundary(point, { masses: { shape: 10, point: 1 }, offset: 10 }));  // TODO: Add masses.
+        grads.push(u.shape.constrainPointOnBoundary(point, { masses: { shape: 10, point: 1 }, offset: 0 }));  // TODO: Add masses.
         // TODO: Prevent jitter if super small. --> There's no jitter with offset
         // TODO: Prevent shift when have offset, something is being calculated wrong.
 
@@ -354,9 +335,12 @@ export function constrainNodePorts(
 
 /**
  * 
- * @param u 
+ * @param u
+ *     First node of pair to ensure nonoverlap.
  * @param v 
+ *     Second node of pair to ensure nonoverlap.
  * @param margin 
+ *     Spacing outside each node's boundary.
  */
 export function constrainNodeNonoverlap(
     u: Node,

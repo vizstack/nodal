@@ -8,6 +8,7 @@
   "types": "dist/index.d.ts",
   "dependencies": {
     "lodash": "^4.17.15",
+    "sat": "^0.8.0",
     "seedrandom": "^3.0.3",
     "three": "^0.108.0"
   },
@@ -25,6 +26,7 @@
     "@types/node": "^12.7.3",
     "@types/react": "^16.9.2",
     "@types/react-dom": "^16.9.0",
+    "@types/sat": "0.0.30",
     "@types/seedrandom": "^2.4.28",
     "@types/storybook__addon-info": "^4.1.2",
     "@types/storybook__addon-knobs": "^5.0.3",

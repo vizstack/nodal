@@ -83,6 +83,7 @@ function* constrainNodes(elems: StructuredStorage, step: number) {
             }
         }
         yield constrainNodeChildren(u);
+        yield u.shape.constrainControl();
         yield constrainNodePorts(u);
     }
 }

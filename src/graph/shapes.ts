@@ -1,4 +1,9 @@
 import { Vector, Gradient } from '../optim';
+import {
+    Polygon as CollidablePolygon,
+    Circle as CollidableCircle,
+    Vector as CollidableVector,
+} from 'sat';
 
 /** A lightweight specification that is transformed into a `Shape`. */
 export type ShapeSchema<T extends Shape = Shape> = ReturnType<T['toSchema']>;
@@ -9,7 +14,14 @@ export type ShapeSchema<T extends Shape = Shape> = ReturnType<T['toSchema']>;
  * (outside) of the boundary.
  */
 export abstract class Shape {
-    constructor(public readonly center: Vector, public preserve?: 'size' | 'ratio') {}
+    /** Half-width and half-height, with respect to the center. */
+    protected readonly control: Vector;
+    protected readonly originalControl: Vector;
+
+    constructor(public readonly center: Vector, public width: number, public height: number, public preserve?: 'size' | 'ratio') {
+        this.control = new Vector(width / 2, height / 2);
+        this.originalControl = this.control.clone();
+    }
 
     /**
      * Returns the axis-aligned bounding box (AABB) around the shape.
@@ -70,6 +82,33 @@ export abstract class Shape {
     ): Gradient[];
 
     /**
+     * 
+     */
+    public constrainControl(): Gradient[] {
+        if (this.preserve === "size") {
+            return [new Gradient(this.control, (new Vector()).subVectors(this.originalControl, this.control))];
+        }
+        const grads = []
+        if (this.preserve === "ratio") {
+            // Set control to be the projection of `this.control` onto `this.originalControl`
+            grads.push(new Gradient(this.control, this.originalControl.clone().multiplyScalar(this.originalControl.dot(this.control)/this.originalControl.lengthSq()).sub(this.control)));
+        }
+        if (this.control.x < 0) {
+            grads.push(new Gradient(this.control, new Vector(this.control.x * -2, 0)));
+        }
+        if (this.control.y < 0) {
+            grads.push(new Gradient(this.control, new Vector(0, this.control.y * -2)));
+        }
+        return grads;
+    }
+
+    public nudgeControl(vector: [number, number]): Gradient[] {
+        return [new Gradient(this.control, new Vector(...vector))];
+    }
+
+    public abstract toCollidable(): CollidablePolygon | CollidableCircle;
+
+    /**
      * Transforms this `Shape` to a `ShapeSchema`.
      */
     public abstract toSchema(): Record<string, any> & { type: string, preserve?: 'size' | 'ratio' };
@@ -77,7 +116,7 @@ export abstract class Shape {
 
 export function fromShapeSchema(schema: ShapeSchema, center: Vector): Shape {
     const { type, preserve } = schema;
-    switch(type) {
+    switch (type) {
         case 'rectangle': {
             const { width, height } = schema as ShapeSchema<Rectangle>;
             return new Rectangle(center, width, height, preserve);
@@ -93,17 +132,13 @@ export function fromShapeSchema(schema: ShapeSchema, center: Vector): Shape {
 }
 
 export class Rectangle extends Shape {
-    /** Half-width and half-height, with respect to the center. */
-    public control: Vector;
-    
     constructor(
         center: Vector,
         width: number,
         height: number,
         preserve?: 'size' | 'ratio',
     ) {
-        super(center, preserve);
-        this.control = new Vector(width / 2, height / 2);
+        super(center, width, height, preserve);
     }
 
     public bounds() {
@@ -118,9 +153,9 @@ export class Rectangle extends Shape {
     }
 
     public boundary(direction: Vector, offset: number = 0) {
-        for(let [start, end] of this._edges(offset)) {
+        for (let [start, end] of this._edges(offset)) {
             const pt = intersectSegment(start, end, direction);
-            if(pt !== undefined) return pt.add(this.center);
+            if (pt !== undefined) return pt.add(this.center);
         }
         throw Error(`No boundary point found: direction ${JSON.stringify(direction)}, edges ${JSON.stringify(this._edges())}`);
     }
@@ -128,14 +163,14 @@ export class Rectangle extends Shape {
     public support(direction: Vector) {
         let max = Number.NEGATIVE_INFINITY;
         let support: Vector | undefined;
-        for(let vertex of this._vertices()) {
+        for (let vertex of this._vertices()) {
             const dot = vertex.dot(direction);
-            if(dot > max) {
+            if (dot > max) {
                 support = vertex;
                 max = dot;
             }
         }
-        if(!support) throw Error(`No support point found: direction ${direction}`);
+        if (!support) throw Error(`No support point found: direction ${direction}`);
         return support.add(this.center);
     }
 
@@ -148,13 +183,20 @@ export class Rectangle extends Shape {
         );
     }
 
-    public constrainShapeWithin(shape: Shape, { masses = { shape: 1, subshape: 1 }, expansion = 0, offset = 0 } = {}) {
-        // TODO
-        return [];
+    public constrainShapeWithin(subshape: Shape, { masses = { shape: 1, subshape: 1 }, expansion = 0, offset = 0 } = {}) {
+        const grads: Gradient[][] = [];
+        for(let normal of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
+            const support = subshape.support(new Vector(normal[0], normal[1]));
+            const g = this.constrainPointWithin(support, { masses: { shape: masses.shape, point: masses.subshape }, expansion, offset });
+            if(g.length === 0) continue;
+            const [pointGrad, centerGrad, controlGrad] = g;
+            grads.push([new Gradient(subshape.center, pointGrad.grad), centerGrad, controlGrad]);
+        }
+        return grads.flat();
     }
 
     public constrainPointWithin(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
-        if(this.contains(point, offset)) return [];
+        if (this.contains(point, offset)) return [];
         return this.constrainPointOnBoundary(point, { masses, expansion, offset });
     }
 
@@ -168,7 +210,7 @@ export class Rectangle extends Shape {
         const boundaryDelta = shapeDelta * expansion;
 
         centerToPoint.normalize();
-        const pointGrad =  new Gradient(
+        const pointGrad = new Gradient(
             point,
             centerToPoint.clone().multiplyScalar(pointDelta),
         );
@@ -182,6 +224,14 @@ export class Rectangle extends Shape {
             this.control.clone().multiplyScalar(boundaryDelta / boundary.length())
         );
         return [pointGrad, centerGrad, controlGrad];
+    }
+
+    public toCollidable() {
+        // Vertices must be specified counter-clockwise,
+        return new CollidablePolygon(
+            new CollidableVector(this.center.x, this.center.y),
+            this._vertices().map((vec) => new CollidableVector(vec.x, vec.y))
+        );
     }
 
     public toSchema() {
@@ -206,7 +256,7 @@ export class Rectangle extends Shape {
         const { x: halfwidth, y: halfheight } = this.control;
         const x = -halfwidth - offset, X = halfwidth + offset;
         const y = -halfheight - offset, Y = halfheight + offset;
-        return [new Vector(x, y), new Vector(X, y), new Vector(x, Y), new Vector(X, Y)];
+        return [new Vector(x, y), new Vector(X, y), new Vector(X, Y), new Vector(x, Y)];
     }
 }
 
@@ -219,7 +269,7 @@ export class Circle extends Shape {
         radius: number,
         preserve?: 'size' | 'ratio',
     ) {
-        super(center, preserve);
+        super(center, radius * 2, radius * 2, preserve);
         this.radius = new Vector(radius, 0);
     }
 
@@ -259,6 +309,10 @@ export class Circle extends Shape {
     public constrainPointOnBoundary(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
         // TODO
         return [];
+    }
+
+    public toCollidable() {
+        return new CollidableCircle(new CollidableVector(this.center.x, this.center.y), this.control.x);
     }
 
     public toSchema() {
