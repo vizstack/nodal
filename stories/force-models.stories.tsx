@@ -175,7 +175,7 @@ storiesOf('force models', module)
                         const idealDistance = idealLength * uvPath;
                         const actualDistance = u.center.distanceTo(v.center);
 
-                        if((elems as StructuredStorage).existsEdge(u, v, true) && actualDistance > idealLength) {
+                        if((elems as StructuredStorage).existsEdge(u, v, true) && actualDistance > idealDistance) {
                             // Attractive force between edges if too far.
                             const delta = actualDistance - idealLength;
                             yield nudgePair(u.center, v.center, [-wu*delta, -wv*delta]);
