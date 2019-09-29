@@ -20,15 +20,15 @@ const kZeroThreshold = 1e-3;
  *     Point vector.
  * @param q
  *     Point vector.
- * @param op 
+ * @param op
  *     Whether to make separation equal to (`=`), greater than or equal to (`>=`), or less than or
  *     equal to (`<=`) the specified distance.
- * @param distance 
+ * @param distance
  *     Positive separation between `p` and `q`.
- * @param axis 
+ * @param axis
  *     Axis onto which the separation is projected. Gradients will point in opposite directions
  *     along this axis. Sign/magnitude does not matter, i.e. [1, 0] is the same as [-2, 0].
- * @param masses 
+ * @param masses
  *     Mass of a point determines its inertia, i.e. with more mass it moves less.
  * @returns
  *     Empty array (if already satisfied) or 2-array of gradients in order `[p, q]`.
@@ -56,7 +56,7 @@ export function constrainDistance(
     if(op === '=' && Math.abs(current - distance) <= kZeroThreshold) return [];
     const delta = distance - current;  // Sign reflects whether should increase/decrease distance.
     if(!masses) masses = [1, 1];
-    if(pq.dot(v) < 0) v.negate(); 
+    if(pq.dot(v) < 0) v.negate();
     const gradq = v.clone().multiplyScalar(delta * masses[0] / (masses[0] + masses[1]));
     const gradp = v.clone().multiplyScalar(-delta * masses[1] / (masses[0] + masses[1]));
     return [new Gradient(p, gradp), new Gradient(q, gradq)];
@@ -66,12 +66,12 @@ export function constrainDistance(
  * Constrains the position of `q` relative to `p` by some `offset` along the `direction`.
  * @param p
  *     Point vector that serves as the reference.
- * @param q 
+ * @param q
  *     Point vector that serves as the offset.
- * @param op 
+ * @param op
  *     Whether to make offset of `q` relative to `p` equal to (`=`), greater than / equal to (`>=`),
  *     or less than / equal to (`<=`) the specified value.
- * @param offset 
+ * @param offset
  *     How much along the direction vector `q` should be relative to `p`. Can be negative.
  * @param direction
  *     Direction vector onto which the offset is projected. Magnitude does not matter.
@@ -106,14 +106,14 @@ export function constrainOffset(
 
 /**
  * Nudges the angle of the vector pointing from `p` to `q`. The mass of a point determines its
- * inertia i.e. with more mass it moves less. The angle is measured counterclockwise from 0 (as 
+ * inertia i.e. with more mass it moves less. The angle is measured counterclockwise from 0 (as
  * in trigonometry) but since browser's render the positive-y direction pointing downwards, the
  * result may appear opposite than intended if unaccounted for.
  * @param p
  *     Point vector that serves as source (direction tail).
- * @param q 
+ * @param q
  *     Point vector that serves as target (direction head.).
- * @param angle 
+ * @param angle
  *     Single angle or array of angles, in degrees within range [0, 360].
  * @param strength
  *     Maximum restoring force (felt when points directly opposite the desired angle).
@@ -162,7 +162,7 @@ export function nudgeAngle(
  *     Point vector.
  * @param q
  *     Point vector.
- * @param magnitude 
+ * @param magnitude
  *     Single magnitude or tuple of magnitudes. Nudges away from each other if positive, and
  *     nudges towards each other if negative.
  * @returns
@@ -185,9 +185,9 @@ export function nudgePair(
  * Nudges a point (or array of points) in the specified `direction` with `magnitude`.
  * @param points
  *     Point vector or array of point vectors.
- * @param magnitude 
+ * @param magnitude
  *     Magnitude scalar.
- * @param direction 
+ * @param direction
  *     Direction vector, unnormalized.
  * @returns
  *     Array of gradients for each point.
@@ -204,9 +204,9 @@ export function nudgePoint(
 
 /**
  * Constrain `u`'s children to be contained within itself, expansing its boundaries if necessary.
- * @param u 
+ * @param u
  *      Node with children to constrain.
- * @param padding 
+ * @param padding
  *      Spacing inside the node's boundary.
  */
 export function constrainNodeChildren(
@@ -227,7 +227,7 @@ const kPortMasses: [number, number] = [1e6, 1];
  * in their correct `order` relative to other ports, if specified. If no port is specified
  * @param u
  *     Node with ports to constrain.
- * @param centering 
+ * @param centering
  *     Strength of port attraction towards center of each side. (default: 0.1)
  * @param gap
  *     Minimum distance between successive ports at a location. (default: 8)
@@ -239,7 +239,7 @@ export function constrainNodePorts(
 ): Gradient[] {
     const grads: Gradient[][] = [];
     const ports: Port[] = Object.values(u.ports);
-    
+
     // Aggregate all ports at the same specified location.
     const orders: Record<Port['location'], (Port & { order: number })[]> = {
         north: [], south: [], east: [], west: [], boundary: [], center: []
@@ -249,7 +249,7 @@ export function constrainNodePorts(
             orders[port.location].push(port as (Port & { order: number }));
         }
     });
-   
+
     const { x: cx, y: cy } = u.center;
     const { width, height, x, y, X, Y } = u.shape.bounds();
     ports.forEach(({ location, order, point }) => {
@@ -257,7 +257,7 @@ export function constrainNodePorts(
             grads.push(constrainDistance(u.center, point, "=", 0, { masses: kPortMasses }));
             return;
         }
-        
+
         let side: 'north' | 'south' | 'east' | 'west';
         if(location === 'boundary') {
             // Narrow down location that the point is currently on.
@@ -275,30 +275,29 @@ export function constrainNodePorts(
 
         // Constrain port to `Shape` boundary.
         grads.push(u.shape.constrainPointOnBoundary(point, { masses: { shape: 10, point: 1 }, offset: 0 }));  // TODO: Add masses.
-        // TODO: Prevent jitter if super small. --> There's no jitter with offset
-        // TODO: Prevent shift when have offset, something is being calculated wrong.
 
         // Attract ports on boundary towards side center.
         switch(side) {
             case 'north':
-                grads.push(nudgePair(new Vector(cx, y), point, [0, -centering]));
+                // Scale the boundary coordinates by a close-to-1 constant so that the ports do not exactly
+                // align with them and cause jitter
+                grads.push(nudgePair(new Vector(cx, y * 0.9), point, [0, -centering]));
                 break;
             case 'south':
-                grads.push(nudgePair(new Vector(cx, Y), point, [0, -centering]));
+                grads.push(nudgePair(new Vector(cx, Y * 0.9), point, [0, -centering]));
                 break;
             case 'west':
-                grads.push(nudgePair(new Vector(x, cy), point, [0, -centering]));
+                grads.push(nudgePair(new Vector(x * 0.9, cy), point, [0, -centering]));
                 break;
             case 'east':
-                grads.push(nudgePair(new Vector(X, cy), point, [0, -centering]));
+                grads.push(nudgePair(new Vector(X * 0.9, cy), point, [0, -centering]));
                 break;
         }
-        
+
         // Maintain separation gap between ports.
         // TODO: Make into a scheduled value.
-        // ports.forEach(({ point: p  }) => grads.push(constrainDistance(point, p, '>=', gap)));
-        // TODO: Ignore center
-        
+        ports.filter(({location}) => location !== 'center').forEach(({ point: p  }) => grads.push(constrainDistance(point, p, '>=', gap)));
+
         // Only location zones and ordering for more specific sides.
         if(location === 'boundary') return;
 
@@ -329,17 +328,17 @@ export function constrainNodePorts(
             })
         }
     });
-    
+
     return grads.flat();
 }
 
 /**
- * 
+ *
  * @param u
  *     First node of pair to ensure nonoverlap.
- * @param v 
+ * @param v
  *     Second node of pair to ensure nonoverlap.
- * @param margin 
+ * @param margin
  *     Spacing outside each node's boundary.
  */
 export function constrainNodeNonoverlap(
@@ -378,9 +377,9 @@ export function constrainNodeNonoverlap(
 }
 
 /**
- * 
- * @param nodes 
- * @param axis 
+ *
+ * @param nodes
+ * @param axis
  */
 export function constrainNodeAlignment(
     nodes: Node[],
@@ -399,12 +398,12 @@ export function constrainNodeAlignment(
 }
 
 /**
- * 
- * @param u 
- * @param v 
- * @param op 
- * @param separation 
- * @param config 
+ *
+ * @param u
+ * @param v
+ * @param op
+ * @param separation
+ * @param config
  */
 export function constrainNodeSeparation(u: Node, v: Node, op: '=' | '>=' | '<=',
 separation: number, { masses = [1, 1] }: Partial<{ masses: [number, number] }> = {}): Gradient[] {
@@ -421,9 +420,9 @@ separation: number, { masses = [1, 1] }: Partial<{ masses: [number, number] }> =
 }
 
 /**
- * 
- * @param u 
- * @param v 
+ *
+ * @param u
+ * @param v
  */
 export function constrainNodeCircular(nodes: Node[], radius: number | undefined = undefined): Gradient[] {
     // TODO
@@ -431,10 +430,10 @@ export function constrainNodeCircular(nodes: Node[], radius: number | undefined 
 }
 
 /**
- * 
- * @param u 
- * @param dx 
- * @param dy 
+ *
+ * @param u
+ * @param dx
+ * @param dy
  */
 export function constrainNodeGrid(u: Node, dx: number, dy: number): Gradient[] {
     const snapx = Math.floor(u.center.x / dx) * dx;
