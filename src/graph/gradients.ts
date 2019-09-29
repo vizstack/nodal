@@ -213,7 +213,11 @@ export function constrainNodeChildren(
     u: Node,
     padding: number = 0,
 ): Gradient[] {
-    return u.children.map((child) => u.shape.constrainShapeWithin(child.shape, { offset: -padding, expansion: 0.5 })).flat();
+    let grads = u.children.map((child) => u.shape.constrainShapeWithin(child.shape, { offset: -padding, expansion: 0.2, masses: { shape: 1, subshape: 10 } })).flat();
+    if (grads.length === 0 && u.children.length > 0) {
+        u.shape.control.multiplyScalar(0.99);
+    }
+    return grads;
 }
 
 // Helper type of port.

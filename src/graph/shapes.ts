@@ -15,12 +15,12 @@ export type ShapeSchema<T extends Shape = Shape> = ReturnType<T['toSchema']>;
  */
 export abstract class Shape {
     /** Half-width and half-height, with respect to the center. */
-    protected readonly control: Vector;
+    public readonly control: Vector;
 
     /** Original control point, for deriving ratio/size constraints. */
     protected readonly originalControl: Vector;
 
-    constructor(public readonly center: Vector, public width: number, public height: number, public preserve?: 'size' | 'ratio') {
+    constructor(public readonly center: Vector, width: number, height: number, public preserve?: 'size' | 'ratio') {
         this.control = new Vector(width / 2, height / 2);
         this.originalControl = this.control.clone();
     }
@@ -189,9 +189,7 @@ export class Rectangle extends Shape {
         let maxPointGradLen = Number.NEGATIVE_INFINITY;
         let maxCenterGradLen = Number.NEGATIVE_INFINITY;
         let maxControlGradLen = Number.NEGATIVE_INFINITY;
-        let maxPointGrad = new Gradient(new Vector(), new Vector());
-        let maxCenterGrad = new Gradient(new Vector(), new Vector());
-        let maxControlGrad = new Gradient(new Vector(), new Vector());
+        let maxPointGrad, maxCenterGrad, maxControlGrad = undefined;
         for(let normal of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
             const support = subshape.support(new Vector(normal[0], normal[1]));
             const g = this.constrainPointWithin(support, { masses: { shape: masses.shape, point: masses.subshape }, expansion, offset });
@@ -210,7 +208,11 @@ export class Rectangle extends Shape {
                 maxControlGradLen = controlGrad.grad.length();
             }
         }
-        return [new Gradient(subshape.center, maxPointGrad.grad), maxCenterGrad, maxControlGrad];
+        const grads = [];
+        if (maxPointGrad !== undefined) grads.push(new Gradient(subshape.center, maxPointGrad.grad));
+        if (maxCenterGrad !== undefined) grads.push(maxCenterGrad);
+        if (maxControlGrad !== undefined) grads.push(maxControlGrad);
+        return grads;
     }
 
     public constrainPointWithin(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {

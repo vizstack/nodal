@@ -46,7 +46,6 @@ function* forceSpringModel(
             for(let child of u.children) {
                 yield nudgePair(u.center, child.center, -compactness*(u.center.distanceTo(child.center)));
             };
-            // yield u.shape.nudgeControl([-30, -30])
         }
         for(let v of elems.nodes()) {
             if(visited.has(v)) continue;
@@ -58,7 +57,8 @@ function* forceSpringModel(
             const uvPath = shortestPath(u, v);
             if(uvPath === undefined) continue; // Ignore disconnected components.
             const idealDistance = idealLength * uvPath;
-            const actualDistance = u.center.distanceTo(v.center);
+            const axis = (new Vector()).subVectors(v.center, u.center);
+            const actualDistance = axis.length() > 0 ? u.shape.boundary(axis).distanceTo(v.shape.boundary(axis.negate())) : 0;
             // const actualDistance = separation({ center: u.center, width: u.shape.width, height: u.shape.height}, { center: v.center, width: v.shape.width, height: v.shape.height});
             if(elems.existsEdge(u, v, true) && actualDistance > idealDistance) {
                 // Attractive force between edges if too far.
@@ -68,7 +68,7 @@ function* forceSpringModel(
                 // Repulsive force between node pairs if too close.
                 // console.log("repulsive", actualDistance, idealDistance);
                 if(actualDistance < idealDistance) {
-                    const delta = idealDistance - actualDistance;
+                    const delta = (idealDistance - actualDistance) / Math.pow(uvPath, 2);
                     yield nudgePair(u.center, v.center, [wu*delta, wv*delta]);
                 }
             }
@@ -79,20 +79,20 @@ function* forceSpringModel(
 function* constrainNodes(elems: StructuredStorage, step: number) {
     for (let u of elems.nodes()) {
         // Apply no-overlap to all siblings.
-        if(step > 15) {
+        if(step > 300) {
             for(let sibling of elems.siblings(u)) {
                 yield constrainNodeNonoverlap(u, sibling);
             }
         }
-        yield constrainNodeChildren(u);
-        yield u.shape.constrainControl();
+        yield constrainNodeChildren(u, 10);
+        // yield u.shape.constrainControl();
         yield constrainNodePorts(u);
     }
 }
 
 const configForceElectrical = {
-    numSteps: 100, numConstraintIters: 5, numForceIters: 5,
-    forceOptimizer: new EnergyOptimizer({ lrInitial: 0.8, lrMax: 0.8, lrMin: 0.01  })
+    numSteps: 500, numConstraintIters: 5, numForceIters: 1,
+    forceOptimizer: new BasicOptimizer(0.5),
 };
 
 storiesOf('features', module)
@@ -388,6 +388,11 @@ storiesOf('features', module)
                 nodes: [
                     {
                         id: `n${idx}:group`,
+                        shape: {
+                            type: 'rectangle',
+                            width: 80,
+                            height: 80,
+                        },
                         children: [
                             `n${idx}:conv1`,
                             `n${idx}:relu1`,
@@ -508,15 +513,16 @@ storiesOf('features', module)
                 ]
             }
         }
-        const nodeSchemas = [...fire(0).nodes, ...fire(1).nodes, ...fire(2).nodes, ...fire(3).nodes, ]; //...fire(4).nodes, ...fire(5).nodes];
-        const edgeSchemas = [...fire(0).edges, ...fire(1).edges, ...fire(2).edges, ...fire(3).edges, ]; // ...fire(4).edges, ...fire(5).edges];
-        // nodeSchemas.push({
-        //     id: "maxpool",
-        //     shape: {
-        //         width: 71,
-        //         height: 21,
-        //     }
-        // });
+        const nodeSchemas = [...fire(0).nodes, ...fire(1).nodes, ...fire(2).nodes, ...fire(3).nodes, ...fire(4).nodes, ...fire(5).nodes];
+        const edgeSchemas = [...fire(0).edges, ...fire(1).edges, ...fire(2).edges, ...fire(3).edges, ...fire(4).edges, ...fire(5).edges];
+        nodeSchemas.push({
+            id: "maxpool",
+            shape: {
+                type: 'rectangle',
+                width: 71,
+                height: 21,
+            }
+        });
         edgeSchemas.push({
             id: "0:cat1:1conv1",
             source: {
@@ -553,58 +559,63 @@ storiesOf('features', module)
         //         id: "n4:conv1",
         //     },
         // })
-        // edgeSchemas.push({
-        //     id: "3:cat1:maxpool",
-        //     source: {
-        //         id: "n3:cat",
-        //     },
-        //     target: {
-        //         id: "maxpool",
-        //     },
-        // })
-        // edgeSchemas.push({
-        //     id: "maxpool:4conv1",
-        //     source: {
-        //         id: "maxpool",
-        //     },
-        //     target: {
-        //         id: "n4:conv1",
-        //     },
-        // })
-        // edgeSchemas.push({
-        //     id: "4:cat1:5conv1",
-        //     source: {
-        //         id: "n4:cat",
-        //     },
-        //     target: {
-        //         id: "n5:conv1",
-        //     },
-        // })
+        edgeSchemas.push({
+            id: "3:cat1:maxpool",
+            source: {
+                id: "n3:cat",
+            },
+            target: {
+                id: "maxpool",
+            },
+        })
+        edgeSchemas.push({
+            id: "maxpool:4conv1",
+            source: {
+                id: "maxpool",
+            },
+            target: {
+                id: "n4:conv1",
+            },
+        })
+        edgeSchemas.push({
+            id: "4:cat1:5conv1",
+            source: {
+                id: "n4:cat",
+            },
+            target: {
+                id: "n5:conv1",
+            },
+        })
         const { nodes, edges } = fromSchema(nodeSchemas, edgeSchemas);
         const elems = new StructuredStorage(nodes, edges);
         const shortestPath = elems.shortestPaths();
-        const idealLength = number('ideal length', 30);
+        const idealLength = number('ideal length', 20);
         const flowSpacing = number('flow spacing', 30);
         const layout = new ForceConstraintLayout(
             elems,
             function* (elems) {
                 yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
+                for(let e of elems.edges()) {
+                    // yield nudgeAngle(e.source.node.center, e.target.node.center, [90, 180], 200)
+                }
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
 
-                console.log('foo');
                 if (step > 0) {
-                    for(let { source, target } of elems.edges()) {
-                        const sourceShape = (source.node.shape as Rectangle).toSchema();
-                        const targetShape = (target.node.shape as Rectangle).toSchema();
-                        const offset = (sourceShape.height + targetShape.height) / 2;
-                        const portLocations: ["south", "north"] = ['south', 'north'];
-                        const flowAxis: [number, number] = [0, 1];
-                        yield constrainOffset(source.node.center, target.node.center, '>=', flowSpacing + offset, flowAxis);
-                        source.node.ports[source.port].location = portLocations[0];  // TODO: Remove this lol!
-                        target.node.ports[target.port].location = portLocations[1];
+                    for (let {source, target} of elems.edges()) {
+                        yield constrainNodeOffset(source.node, target.node, ">=", 30, [0, 1])
                     }
+                    // for(let { source, target } of elems.edges()) {
+                    //     const sourceShape = (source.node.shape as Rectangle).toSchema();
+                    //     const targetShape = (target.node.shape as Rectangle).toSchema();
+                    //     const offset = (sourceShape.height + targetShape.height) / 2;
+                    //     const portLocations: ["south", "north"] = ['south', 'north'];
+                    //     const flowAxis: [number, number] = [0, 1];
+                    //     yield constrainOffset(source.node.center, target.node.center, '>=', flowSpacing + offset, flowAxis);
+                    //     source.node.ports[source.port].location = portLocations[0];  // TODO: Remove this lol!
+                    //     target.node.ports[target.port].location = portLocations[1];
+                    // }
                 }
             },
             configForceElectrical,
