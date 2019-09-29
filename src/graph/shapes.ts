@@ -16,6 +16,8 @@ export type ShapeSchema<T extends Shape = Shape> = ReturnType<T['toSchema']>;
 export abstract class Shape {
     /** Half-width and half-height, with respect to the center. */
     protected readonly control: Vector;
+
+    /** Original control point, for deriving ratio/size constraints. */
     protected readonly originalControl: Vector;
 
     constructor(public readonly center: Vector, public width: number, public height: number, public preserve?: 'size' | 'ratio') {
