@@ -19,7 +19,8 @@ import {
     constrainNodePorts,
     constrainNodeAlignment,
     constrainNodeGrid,
-    constrainNodeSeparation,
+    constrainNodeDistance,
+    constrainNodeOffset,
     constrainNodeNonoverlap,
     constrainOffset,
     nudgeAngle,
@@ -88,7 +89,7 @@ function* constrainNodes(elems: StructuredStorage, step: number) {
 }
 
 const configForceElectrical = {
-    numSteps: 10, numConstraintIters: 5, numForceIters: 5,
+    numSteps: 100, numConstraintIters: 5, numForceIters: 5,
     forceOptimizer: new EnergyOptimizer({ lrInitial: 0.8, lrMax: 0.8, lrMin: 0.01  })
 };
 
@@ -292,6 +293,30 @@ storiesOf('features', module)
             },
             function* (elems, step) {
                 yield* constrainNodes(elems as StructuredStorage, step);
+            },
+            configForceElectrical,
+        );
+        return (
+            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
+        );
+    })
+    .add('node distance and offset', () => {
+        const { nodes, edges } = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesTree);
+        const elems = new StructuredStorage(nodes, edges);
+        const shortestPath = elems.shortestPaths();
+        const idealLength = number('ideal length', 30);
+        const layout = new ForceConstraintLayout(
+            elems,
+            function* (elems) {
+                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
+            },
+            function* (elems, step) {
+                yield* constrainNodes(elems as StructuredStorage, step);
+
+                yield constrainNodeOffset(elems.node('n0'), elems.node('n1'), '>=', 100, [1, 1]);
+                yield constrainNodeDistance(elems.node('n1'), elems.node('n2'), '>=', 100);
+                yield constrainNodeOffset(elems.node('n2'), elems.node('n3'), '>=', 100, [-1, 1]);
+                yield constrainNodeDistance(elems.node('n2'), elems.node('n4'), '>=', 100, {axis: [1, 0]});
             },
             configForceElectrical,
         );

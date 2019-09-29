@@ -51,12 +51,12 @@ export function constrainDistance(
         (new Vector(axis[0], axis[1])).normalize() :
         pq.clone().normalize();
     const current = axis ? Math.abs(pq.dot(v)) : pq.length();
-    if(op === '>=' && current >= distance + kZeroThreshold) return [];
-    if(op === '<=' && current <= distance - kZeroThreshold) return [];
-    if(op === '=' && Math.abs(current - distance) <= kZeroThreshold) return [];
+    if (op === '>=' && current >= distance + kZeroThreshold) return [];
+    if (op === '<=' && current <= distance - kZeroThreshold) return [];
+    if (op === '=' && Math.abs(current - distance) <= kZeroThreshold) return [];
     const delta = distance - current;  // Sign reflects whether should increase/decrease distance.
-    if(!masses) masses = [1, 1];
-    if(pq.dot(v) < 0) v.negate(); 
+    if (!masses) masses = [1, 1];
+    if (pq.dot(v) < 0) v.negate();
     const gradq = v.clone().multiplyScalar(delta * masses[0] / (masses[0] + masses[1]));
     const gradp = v.clone().multiplyScalar(-delta * masses[1] / (masses[0] + masses[1]));
     return [new Gradient(p, gradp), new Gradient(q, gradq)];
@@ -95,9 +95,9 @@ export function constrainOffset(
     const pq = (new Vector()).subVectors(q, p);
     const v = (new Vector(direction[0], direction[1])).normalize();
     const projected = pq.dot(v);
-    if(op === '>=' && projected >= offset + kZeroThreshold) return [];
-    if(op === '<=' && projected <= offset - kZeroThreshold) return [];
-    if(op === '=' && Math.abs(projected - offset) <= kZeroThreshold) return [];
+    if (op === '>=' && projected >= offset + kZeroThreshold) return [];
+    if (op === '<=' && projected <= offset - kZeroThreshold) return [];
+    if (op === '=' && Math.abs(projected - offset) <= kZeroThreshold) return [];
     const delta = offset - projected;
     const gradq = v.clone().multiplyScalar(delta * masses[0] / (masses[0] + masses[1]));
     const gradp = v.clone().multiplyScalar(-delta * masses[1] / (masses[0] + masses[1]));
@@ -130,14 +130,14 @@ export function nudgeAngle(
     const pq = (new Vector()).subVectors(q, p).normalize();
     const pqAngle = Math.atan2(pq.y, pq.x) * 180 / Math.PI;  // In degrees.
     let desired: number;
-    if(Array.isArray(angle)) {
-        if(angle.length === 0) throw Error('No angles specified');
+    if (Array.isArray(angle)) {
+        if (angle.length === 0) throw Error('No angles specified');
         desired = angle[0];
         let mindiff = Number.POSITIVE_INFINITY;
-        for(let a of angle) {
+        for (let a of angle) {
             // Positive angular difference in range [0, 180].
             const diff = 180 - Math.abs(Math.abs(a - pqAngle) - 180);
-            if(diff < mindiff) {
+            if (diff < mindiff) {
                 desired = a;
                 mindiff = diff;
             }
@@ -149,8 +149,8 @@ export function nudgeAngle(
     // Signed angular difference in range (-180, 180].
     const sgndiff = (pqAngle - desired - 540) % 360 + 180;
     const delta = strength * sgndiff / 180;  // In range (-strength, strength].
-    const gradq = (new Vector(pq.y, -pq.x)).multiplyScalar(delta*masses[0]/(masses[0] + masses[1]));
-    const gradp = (new Vector(-pq.y, pq.x)).multiplyScalar(delta*masses[1]/(masses[0] + masses[1]));
+    const gradq = (new Vector(pq.y, -pq.x)).multiplyScalar(delta * masses[0] / (masses[0] + masses[1]));
+    const gradp = (new Vector(-pq.y, pq.x)).multiplyScalar(delta * masses[1] / (masses[0] + masses[1]));
     return [new Gradient(p, gradp), new Gradient(q, gradq)];
 }
 
@@ -173,7 +173,7 @@ export function nudgePair(
     q: Vector,
     magnitude: number | [number, number]
 ): [Gradient, Gradient] {
-    if(!Array.isArray(magnitude)) magnitude = [magnitude, magnitude];
+    if (!Array.isArray(magnitude)) magnitude = [magnitude, magnitude];
     const qp = (new Vector()).subVectors(p, q).normalize();
     const pq = qp.clone().negate();
     qp.multiplyScalar(magnitude[0]);
@@ -197,7 +197,7 @@ export function nudgePoint(
     magnitude: number,
     direction: [number, number]
 ): Gradient[] {
-    if(!Array.isArray(points)) points = [points];
+    if (!Array.isArray(points)) points = [points];
     const grad = (new Vector(direction[0], direction[1])).normalize().multiplyScalar(magnitude);
     return points.map((p) => new Gradient(p, grad.clone()));
 }
@@ -258,32 +258,32 @@ export function constrainNodePorts(
 ): Gradient[] {
     const grads: Gradient[][] = [];
     const ports: Port[] = Object.values(u.ports);
-    
+
     // Aggregate all ports at the same specified location.
     const orders: Record<Port['location'], (Port & { order: number })[]> = {
         north: [], south: [], east: [], west: [], boundary: [], center: []
     };
     ports.forEach((port) => {
-        if(port.order !== undefined) {
+        if (port.order !== undefined) {
             orders[port.location].push(port as (Port & { order: number }));
         }
     });
-   
+
     const { x: cx, y: cy } = u.center;
     const { width, height, x, y, X, Y } = u.shape.bounds();
     ports.forEach(({ location, order, point }) => {
-        if(location === 'center') {
+        if (location === 'center') {
             grads.push(constrainDistance(u.center, point, "=", 0, { masses: kPortMasses }));
             return;
         }
-        
+
         let side: 'north' | 'south' | 'east' | 'west';
-        if(location === 'boundary') {
+        if (location === 'boundary') {
             // Narrow down location that the point is currently on.
             const ray = (new Vector()).subVectors(point, u.center);
             const risingNormalDot = ray.x * (-height) + ray.y * (-width);
             const fallingNormalDot = ray.x * (height) + ray.y * (-width);
-            if(risingNormalDot > 0) {
+            if (risingNormalDot > 0) {
                 side = fallingNormalDot > 0 ? 'north' : 'west';
             } else {
                 side = fallingNormalDot > 0 ? 'east' : 'south';
@@ -296,7 +296,7 @@ export function constrainNodePorts(
         grads.push(u.shape.constrainPointOnBoundary(point, { masses: { shape: 10, point: 1 }, offset: 0 }));  // TODO: Add masses.
 
         // Attract ports on boundary towards side center.
-        switch(side) {
+        switch (side) {
             case 'north':
                 // Scale the boundary coordinates by a close-to-1 constant so that the ports do not exactly
                 // align with them and cause jitter
@@ -312,13 +312,13 @@ export function constrainNodePorts(
                 grads.push(nudgePair(new Vector(X * 0.9, cy), point, [0, -centering]));
                 break;
         }
-        
+
         // Maintain separation gap between ports.
         // TODO: Make into a scheduled value.
-        ports.filter(({location}) => location !== 'center').forEach(({ point: p  }) => grads.push(constrainDistance(point, p, '>=', gap)));
-        
+        ports.filter(({ location }) => location !== 'center').forEach(({ point: p }) => grads.push(constrainDistance(point, p, '>=', gap)));
+
         // Only location zones and ordering for more specific sides.
-        if(location === 'boundary') return;
+        if (location === 'boundary') return;
 
         // Constrain the port to be in the correct location zone (if not 'boundary' or 'center'):
         // |\ N /|    N = 'north',    portAxis: [1, 0]
@@ -347,7 +347,7 @@ export function constrainNodePorts(
             })
         }
     });
-    
+
     return grads.flat();
 }
 
@@ -368,25 +368,25 @@ export function constrainNodeNonoverlap(
     const { x: vx, y: vy, X: vX, Y: vY, width: vwidth, height: vheight } = v.shape.bounds();
     const ubounds = new Box2(new Vector(ux, uy), new Vector(uX, uY));
     const vbounds = new Box2(new Vector(vx, vy), new Vector(vX, vY));
-    if(!ubounds.intersectsBox(vbounds)) return [];
-    const xgrad = constrainDistance(u.center, v.center, ">=", (uwidth + vwidth)/2, {axis: [1, 0]});
-    const ygrad = constrainDistance(u.center, v.center, ">=", (uheight + vheight)/2, {axis: [0, 1]});
+    if (!ubounds.intersectsBox(vbounds)) return [];
+    const xgrad = constrainDistance(u.center, v.center, ">=", (uwidth + vwidth) / 2, { axis: [1, 0] });
+    const ygrad = constrainDistance(u.center, v.center, ">=", (uheight + vheight) / 2, { axis: [0, 1] });
     const xgradlen = xgrad.reduce((sum, grad) => sum + grad.grad.length(), 0);
     const ygradlen = ygrad.reduce((sum, grad) => sum + grad.grad.length(), 0);
     const shorter = xgradlen < ygradlen ? xgrad : ygrad;
 
     // Bump all descendants by gradient on root.
     function moveChildren(p: Node, grad: Vector) {
-        if(p.children.length > 0) {
+        if (p.children.length > 0) {
             p.children.forEach((c) => {
                 shorter.push(new Gradient(c.center, grad));
                 moveChildren(c, grad);
             });
         }
     }
-    for(let grad of shorter) {
-        if(grad.point === u.center) moveChildren(u, grad.grad);
-        if(grad.point === v.center) moveChildren(v, grad.grad);
+    for (let grad of shorter) {
+        if (grad.point === u.center) moveChildren(u, grad.grad);
+        if (grad.point === v.center) moveChildren(v, grad.grad);
     }
 
     return shorter;
@@ -404,35 +404,80 @@ export function constrainNodeAlignment(
 ): Gradient[] {
     // TODO: Integrate align.
     const [x, y] = axis;
-    if(nodes.length < 2) return [];
+    if (nodes.length < 2) return [];
     const grads: Gradient[][] = [];
-    for(let i = 0; i < nodes.length - 1; i++) {
+    for (let i = 0; i < nodes.length - 1; i++) {
         // TODO: Integrate fixed.
-        grads.push(constrainDistance(nodes[i].center, nodes[i+1].center, '=', 0, { axis: [-y, x] }))
+        grads.push(constrainDistance(nodes[i].center, nodes[i + 1].center, '=', 0, { axis: [-y, x] }))
     }
     return grads.flat();
 }
 
 /**
- * 
+ * Constraint two nodes such that the distance between their support points along a given axis obeys a given inequality.
  * @param u 
  * @param v 
  * @param op 
  * @param separation 
  * @param config 
  */
-export function constrainNodeSeparation(u: Node, v: Node, op: '=' | '>=' | '<=',
-separation: number, { masses = [1, 1] }: Partial<{ masses: [number, number] }> = {}): Gradient[] {
-    // TODO: Rewrite this properly
+export function constrainNodeDistance(
+    u: Node, 
+    v: Node, 
+    op: '=' | '>=' | '<=', 
+    distance: number,
+    {
+        axis = undefined,
+        masses = [1, 1]
+    }: Partial<{
+        masses: [number, number],
+        axis?: [number, number]
+    }> = {},
+): Gradient[] {
     // TODO: Integrate fixed;
-    const uv = (new Vector()).subVectors(v.center, u.center);
-    let distance = uv.length();
-    const { width: uwidth, height: uheight } = u.shape.bounds();
-    const { width: vwidth, height: vheight } = v.shape.bounds();
-    const uborder = uv.y * uwidth > uv.x * uheight ? new Vector(uv.x / uv.y * uwidth, uheight) : new Vector(uwidth, uv.y / uv.x * uheight);
-    const vborder = uv.y * vwidth > uv.x * vheight ? new Vector(uv.x / uv.y * vwidth, vheight) : new Vector(vwidth, uv.y / uv.x * vheight);
-    let interior = (uborder.length() + vborder.length()) / 2;  // TODO: Make shape.
-    return constrainDistance(u.center, v.center, op, separation + interior, { masses })
+    const supportAxis = (new Vector()).subVectors(v.center, u.center);
+    const us = u.shape.support(supportAxis);
+    const vs = v.shape.support(supportAxis.negate());
+    return constrainDistance(us, vs, op, distance, { axis, masses }).map((grad) => {
+        if (grad.point === us) {
+            return new Gradient(u.center, grad.grad);
+        }
+        else if (grad.point === vs) {
+            return new Gradient(v.center, grad.grad);
+        }
+        throw Error('Gradient for unknown point returned by `constrainOffset()`.');
+    });
+}
+
+/**
+ * Constraint two nodes such that the distance between their support points along a given axis obeys a given inequality.
+ * @param u 
+ * @param v 
+ * @param op 
+ * @param separation 
+ * @param config 
+ */
+export function constrainNodeOffset(
+    u: Node, 
+    v: Node, 
+    op: '=' | '>=' | '<=', 
+    offset: number, 
+    direction: [number, number], 
+    { masses = [1, 1] }: Partial<{ masses: [number, number] }> = {}
+): Gradient[] {
+    // TODO: Integrate fixed;
+    const axis = new Vector(...direction);
+    const us = u.shape.support(axis);
+    const vs = v.shape.support(axis.negate());
+    return constrainOffset(us, vs, op, offset, direction, { masses }).map((grad) => {
+        if (grad.point === us) {
+            return new Gradient(u.center, grad.grad);
+        }
+        else if (grad.point === vs) {
+            return new Gradient(v.center, grad.grad);
+        }
+        throw Error('Gradient for unknown point returned by `constrainOffset()`.');
+    });
 }
 
 /**
