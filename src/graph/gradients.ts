@@ -20,15 +20,15 @@ const kZeroThreshold = 1e-3;
  *     Point vector.
  * @param q
  *     Point vector.
- * @param op 
+ * @param op
  *     Whether to make separation equal to (`=`), greater than or equal to (`>=`), or less than or
  *     equal to (`<=`) the specified distance.
- * @param distance 
+ * @param distance
  *     Positive separation between `p` and `q`.
- * @param axis 
+ * @param axis
  *     Axis onto which the separation is projected. Gradients will point in opposite directions
  *     along this axis. Sign/magnitude does not matter, i.e. [1, 0] is the same as [-2, 0].
- * @param masses 
+ * @param masses
  *     Mass of a point determines its inertia, i.e. with more mass it moves less.
  * @returns
  *     Empty array (if already satisfied) or 2-array of gradients in order `[p, q]`.
@@ -66,12 +66,12 @@ export function constrainDistance(
  * Constrains the position of `q` relative to `p` by some `offset` along the `direction`.
  * @param p
  *     Point vector that serves as the reference.
- * @param q 
+ * @param q
  *     Point vector that serves as the offset.
- * @param op 
+ * @param op
  *     Whether to make offset of `q` relative to `p` equal to (`=`), greater than / equal to (`>=`),
  *     or less than / equal to (`<=`) the specified value.
- * @param offset 
+ * @param offset
  *     How much along the direction vector `q` should be relative to `p`. Can be negative.
  * @param direction
  *     Direction vector onto which the offset is projected. Magnitude does not matter.
@@ -106,14 +106,14 @@ export function constrainOffset(
 
 /**
  * Nudges the angle of the vector pointing from `p` to `q`. The mass of a point determines its
- * inertia i.e. with more mass it moves less. The angle is measured counterclockwise from 0 (as 
+ * inertia i.e. with more mass it moves less. The angle is measured counterclockwise from 0 (as
  * in trigonometry) but since browser's render the positive-y direction pointing downwards, the
  * result may appear opposite than intended if unaccounted for.
  * @param p
  *     Point vector that serves as source (direction tail).
- * @param q 
+ * @param q
  *     Point vector that serves as target (direction head.).
- * @param angle 
+ * @param angle
  *     Single angle or array of angles, in degrees within range [0, 360].
  * @param strength
  *     Maximum restoring force (felt when points directly opposite the desired angle).
@@ -162,7 +162,7 @@ export function nudgeAngle(
  *     Point vector.
  * @param q
  *     Point vector.
- * @param magnitude 
+ * @param magnitude
  *     Single magnitude or tuple of magnitudes. Nudges away from each other if positive, and
  *     nudges towards each other if negative.
  * @returns
@@ -185,9 +185,9 @@ export function nudgePair(
  * Nudges a point (or array of points) in the specified `direction` with `magnitude`.
  * @param points
  *     Point vector or array of point vectors.
- * @param magnitude 
+ * @param magnitude
  *     Magnitude scalar.
- * @param direction 
+ * @param direction
  *     Direction vector, unnormalized.
  * @returns
  *     Array of gradients for each point.
@@ -203,36 +203,17 @@ export function nudgePoint(
 }
 
 /**
- *  
- * @param u 
- * @param padding 
+ * Constrain `u`'s children to be contained within itself, expansing its boundaries if necessary.
+ * @param u
+ *      Node with children to constrain.
+ * @param padding
+ *      Spacing inside the node's boundary.
  */
 export function constrainNodeChildren(
     u: Node,
     padding: number = 0,
 ): Gradient[] {
-    // TODO: Based on shape, which has different borders, give to shape to produce constraints.
-
-    // Compute new parent bounds.
-    // if(u.children.length > 0) {
-    //     const box = new Box2();
-    //     u.children.forEach((child) => {
-    //         box.expandByPoint(new Vector(
-    //             child.center.x - child.shape.width /2 - padding,
-    //             child.center.y - child.shape.height/2 - padding,
-    //         ));
-    //         box.expandByPoint(new Vector(
-    //             child.center.x + child.shape.width /2 + padding,
-    //             child.center.y + child.shape.height/2 + padding,
-    //         ))
-    //     });
-    //     box.getCenter(u.center);
-    //     const dims = new Vector();
-    //     box.getSize(dims);
-    //     u.shape.width = dims.x;
-    //     u.shape.height = dims.y;
-    // }
-    return [];
+    return u.children.map((child) => u.shape.constrainShapeWithin(child.shape, { offset: -padding })).flat();
 }
 
 // Helper type of port.
@@ -246,7 +227,7 @@ const kPortMasses: [number, number] = [1e6, 1];
  * in their correct `order` relative to other ports, if specified. If no port is specified
  * @param u
  *     Node with ports to constrain.
- * @param centering 
+ * @param centering
  *     Strength of port attraction towards center of each side. (default: 0.1)
  * @param gap
  *     Minimum distance between successive ports at a location. (default: 8)
@@ -352,10 +333,13 @@ export function constrainNodePorts(
 }
 
 /**
- * 
- * @param u 
- * @param v 
- * @param margin 
+ *
+ * @param u
+ *     First node of pair to ensure nonoverlap.
+ * @param v
+ *     Second node of pair to ensure nonoverlap.
+ * @param margin
+ *     Spacing outside each node's boundary.
  */
 export function constrainNodeNonoverlap(
     u: Node,
@@ -393,9 +377,9 @@ export function constrainNodeNonoverlap(
 }
 
 /**
- * 
- * @param nodes 
- * @param axis 
+ *
+ * @param nodes
+ * @param axis
  */
 export function constrainNodeAlignment(
     nodes: Node[],
@@ -481,9 +465,9 @@ export function constrainNodeOffset(
 }
 
 /**
- * 
- * @param u 
- * @param v 
+ *
+ * @param u
+ * @param v
  */
 export function constrainNodeCircular(nodes: Node[], radius: number | undefined = undefined): Gradient[] {
     // TODO
@@ -491,10 +475,10 @@ export function constrainNodeCircular(nodes: Node[], radius: number | undefined 
 }
 
 /**
- * 
- * @param u 
- * @param dx 
- * @param dy 
+ *
+ * @param u
+ * @param dx
+ * @param dy
  */
 export function constrainNodeGrid(u: Node, dx: number, dy: number): Gradient[] {
     const snapx = Math.floor(u.center.x / dx) * dx;
