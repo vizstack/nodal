@@ -186,15 +186,31 @@ export class Rectangle extends Shape {
     }
 
     public constrainShapeWithin(subshape: Shape, { masses = { shape: 1, subshape: 1 }, expansion = 0, offset = 0 } = {}) {
-        const grads: Gradient[][] = [];
+        let maxPointGradLen = Number.NEGATIVE_INFINITY;
+        let maxCenterGradLen = Number.NEGATIVE_INFINITY;
+        let maxControlGradLen = Number.NEGATIVE_INFINITY;
+        let maxPointGrad = new Gradient(new Vector(), new Vector());
+        let maxCenterGrad = new Gradient(new Vector(), new Vector());
+        let maxControlGrad = new Gradient(new Vector(), new Vector());
         for(let normal of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
             const support = subshape.support(new Vector(normal[0], normal[1]));
             const g = this.constrainPointWithin(support, { masses: { shape: masses.shape, point: masses.subshape }, expansion, offset });
             if(g.length === 0) continue;
             const [pointGrad, centerGrad, controlGrad] = g;
-            grads.push([new Gradient(subshape.center, pointGrad.grad), centerGrad, controlGrad]);
+            if(pointGrad.grad.length() > maxPointGradLen) {
+                maxPointGrad = pointGrad;
+                maxPointGradLen = pointGrad.grad.length();
+            }
+            if(centerGrad.grad.length() > maxCenterGradLen) {
+                maxCenterGrad = centerGrad;
+                maxCenterGradLen = centerGrad.grad.length();
+            }
+            if(controlGrad.grad.length() > maxControlGradLen) {
+                maxControlGrad = controlGrad;
+                maxControlGradLen = controlGrad.grad.length();
+            }
         }
-        return grads.flat();
+        return [new Gradient(subshape.center, maxPointGrad.grad), maxCenterGrad, maxControlGrad];
     }
 
     public constrainPointWithin(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {

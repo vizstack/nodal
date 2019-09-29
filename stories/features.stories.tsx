@@ -46,7 +46,7 @@ function* forceSpringModel(
             for(let child of u.children) {
                 yield nudgePair(u.center, child.center, -compactness*(u.center.distanceTo(child.center)));
             };
-            yield u.shape.nudgeControl([-50, -50])
+            // yield u.shape.nudgeControl([-30, -30])
         }
         for(let v of elems.nodes()) {
             if(visited.has(v)) continue;
