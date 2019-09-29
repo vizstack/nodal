@@ -46,6 +46,7 @@ function* forceSpringModel(
             for(let child of u.children) {
                 yield nudgePair(u.center, child.center, -compactness*(u.center.distanceTo(child.center)));
             };
+            yield u.shape.nudgeControl([-50, -50])
         }
         for(let v of elems.nodes()) {
             if(visited.has(v)) continue;
@@ -63,7 +64,7 @@ function* forceSpringModel(
                 // Attractive force between edges if too far.
                 const delta = actualDistance - idealDistance;
                 yield nudgePair(u.center, v.center, [-wu*delta, -wv*delta]);
-            } else {
+            } else if (!elems.hasAncestor(u, v)) {
                 // Repulsive force between node pairs if too close.
                 // console.log("repulsive", actualDistance, idealDistance);
                 if(actualDistance < idealDistance) {

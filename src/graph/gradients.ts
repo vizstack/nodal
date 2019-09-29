@@ -213,7 +213,7 @@ export function constrainNodeChildren(
     u: Node,
     padding: number = 0,
 ): Gradient[] {
-    return u.children.map((child) => u.shape.constrainShapeWithin(child.shape, { offset: -padding })).flat();
+    return u.children.map((child) => u.shape.constrainShapeWithin(child.shape, { offset: -padding, expansion: 0.5 })).flat();
 }
 
 // Helper type of port.
