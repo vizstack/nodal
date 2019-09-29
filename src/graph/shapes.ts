@@ -96,10 +96,10 @@ export abstract class Shape {
             grads.push(new Gradient(this.control, this.originalControl.clone().multiplyScalar(this.originalControl.dot(this.control)/this.originalControl.lengthSq()).sub(this.control)));
         }
         if (this.control.x < 0) {
-            grads.push(new Gradient(this.control, new Vector(this.control.x * -2, 0)));
+            grads.push(new Gradient(this.control, new Vector(-this.control.x + 0.1, 0)));
         }
         if (this.control.y < 0) {
-            grads.push(new Gradient(this.control, new Vector(0, this.control.y * -2)));
+            grads.push(new Gradient(this.control, new Vector(0, -this.control.y + 0.1)));
         }
         return grads;
     }
