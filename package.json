@@ -1,7 +1,7 @@
 {
   "name": "nodal",
   "version": "1.0.0",
-  "description": "Modularly build a gradient-based graph layout engine.",
+  "description": "A powerful open-source library for graph layout.",
   "repository": "https://github.com/vizstack/nodal",
   "license": "MIT",
   "main": "dist/index.js",
