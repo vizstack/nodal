@@ -3,14 +3,9 @@ import classNames from "classnames";
 
 // @material-ui/core components
 import withStyles from "@material-ui/core/styles/withStyles";
+import { MuiThemeProvider } from "@material-ui/core/styles";
 
 // @material-ui/icons
-
-// Syntax highlighter
-import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
-import jsx from 'react-syntax-highlighter/dist/esm/languages/prism/jsx';
-import prism from 'react-syntax-highlighter/dist/esm/styles/prism/prism';
-import tomorrow from 'react-syntax-highlighter/dist/esm/styles/prism/tomorrow';
 
 // Core components
 import Header from "components/Header/Header.jsx";
@@ -21,12 +16,13 @@ import HeaderLinks from "components/Header/HeaderLinks.jsx";
 import Parallax from "components/Parallax/Parallax.jsx";
 
 import { container, title } from "assets/jss/material-kit-react.jsx";
+import theme from "assets/jss/theme.jsx";
 
 // Sections for this page
 import PrinciplesSection from "./sections/PrinciplesSection.jsx";
+import DemoSection from "./sections/DemoSection.jsx";
 import TeamSection from "./sections/TeamSection.jsx";
 
-SyntaxHighlighter.registerLanguage('jsx', jsx);
 
 const dashboardRoutes = [];
 
@@ -50,7 +46,7 @@ class LandingPage extends React.Component {
         <Parallax image={require("assets/img/landing-bg.jpg")}>
           <div className={classes.container}>
             <GridContainer>
-              <GridItem xs={12} sm={8} md={6}>
+              <GridItem xs={12} sm={9} md={6}>
                 <h2 className={classes.title}>
                   A powerful <br/>
                   open-source library <br/>
@@ -70,13 +66,13 @@ class LandingPage extends React.Component {
           </div>
         </Parallax>
         <div className={classNames(classes.main, classes.mainRaised)}>
-          <div className={classes.container}>
+          <MuiThemeProvider theme={theme}>
+            <div className={classes.container}>
             <PrinciplesSection />
-            <iframe
-              src="storybook/?path=/story/force-models--spring-w-simple-nodes"
-              style={{ width: '100%', height: '100vh' }} />
+            <DemoSection />
             <TeamSection />
-          </div>
+            </div>
+          </MuiThemeProvider>
         </div>
         <Footer />
       </div>
@@ -88,7 +84,7 @@ const styles = {
   container: {
     zIndex: "12",
     // color: "#FFFFFF",  // If photo background, make white.
-    ...container
+    ...container,
   },
   title: {
     ...title,
@@ -109,10 +105,13 @@ const styles = {
     zIndex: "3"
   },
   mainRaised: {
-    margin: "-60px 20px 0px",
     borderRadius: "6px",
     boxShadow:
-      "0 16px 24px 2px rgba(0, 0, 0, 0.14), 0 6px 30px 5px rgba(0, 0, 0, 0.12), 0 8px 10px -5px rgba(0, 0, 0, 0.2)"
+      "0 16px 24px 2px rgba(0, 0, 0, 0.14), 0 6px 30px 5px rgba(0, 0, 0, 0.12), 0 8px 10px -5px rgba(0, 0, 0, 0.2)",
+    margin: "-60px 0px 0px",
+    "@media (min-width: 600px)": {
+      margin: "-60px 20px 0px",
+    },
   },
   codebox: {
     borderRadius: 4,

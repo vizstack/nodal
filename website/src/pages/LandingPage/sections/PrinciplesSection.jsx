@@ -37,7 +37,7 @@ class PrinciplesSection extends React.Component {
                 title="Composable"
                 description={<span>Nodal allows you to build graph layouts by assembling <b>small, predictable pieces</b> (like points, forces, and constraints) into more complex structures and behaviors.</span>}
                 icon={ComposableIcon}
-                iconColor="info"
+                iconColor="primary"
                 vertical
               />
             </GridItem>
@@ -46,7 +46,7 @@ class PrinciplesSection extends React.Component {
                 title="Hackable"
                 description={<span>Nodal is designed with an appreciation of the diversity of graph layout needs. Its <b>elegant, well-documented abstractions</b> are easy to extend or replace for domain-specific applications.</span>}
                 icon={HackableIcon}
-                iconColor="info"
+                iconColor="primary"
                 vertical
               />
             </GridItem>
@@ -55,7 +55,7 @@ class PrinciplesSection extends React.Component {
                 title="Intuitive"
                 description={<span>Nodal is based on <b>gradient-descent</b> rather than the inscrutable algorithms of traditional layout. This allows you to leverage <b>physical and geometric intuitions</b> while tuning your graphs.</span>}
                 icon={IntuitiveIcon}
-                iconColor="info"
+                iconColor="primary"
                 vertical
               />
             </GridItem>

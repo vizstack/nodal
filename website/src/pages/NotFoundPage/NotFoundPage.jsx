@@ -1,5 +1,4 @@
 import React from "react";
-import classNames from "classnames";
 
 // @material-ui/core components
 import withStyles from "@material-ui/core/styles/withStyles";
@@ -40,11 +39,15 @@ class NotFoundPage extends React.Component {
           <div className={classes.container}>
             <GridContainer>
               <GridItem xs={12} sm={8} md={6}>
-                <h2 className={classes.title}>
-                  404 Not Found
-                </h2>
+                <h1 className={classes.title}>
+                  Oops!
+                </h1>
                 <br/>
-                <Button color="primary" href="/">Go Home</Button>
+                <h3>
+                  We can't seem to find the page you're looking for.
+                </h3>
+                <br/>
+                <Button color="primary" href="/">Go To Home</Button>
               </GridItem>
             </GridContainer>
           </div>
