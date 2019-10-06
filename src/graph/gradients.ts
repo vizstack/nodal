@@ -388,7 +388,7 @@ export function constrainNodeNonoverlap(
 export function constrainNodeAlignment(
     nodes: Node[],
     axis: [number, number],
-    align: 'left' | 'center' | 'right' = 'center',
+    align: 'north' | 'south' | 'east' | 'west' | 'center' = 'center',
 ): Gradient[] {
     // TODO: Integrate align.
     const [x, y] = axis;
@@ -396,7 +396,30 @@ export function constrainNodeAlignment(
     const grads: Gradient[][] = [];
     for (let i = 0; i < nodes.length - 1; i++) {
         // TODO: Integrate fixed.
-        grads.push(constrainDistance(nodes[i].center, nodes[i + 1].center, '=', 0, { axis: [-y, x] }))
+        const u = nodes[i];
+        const v = nodes[i + 1];
+        const p = u.center.clone();
+        const q = v.center.clone();
+        switch(align) {
+            case 'north': 
+                p.y += u.shape.support(new Vector(0, -1)).sub(u.center).y;
+                q.y += v.shape.support(new Vector(0, -1)).sub(v.center).y;
+                break;
+            case 'south': 
+                p.y += u.shape.support(new Vector(0, 1)).sub(u.center).y;
+                q.y += v.shape.support(new Vector(0, 1)).sub(v.center).y;
+                break;
+            case 'east': 
+                p.x += u.shape.support(new Vector(0, 1)).sub(u.center).x;
+                q.x += v.shape.support(new Vector(0, 1)).sub(v.center).x;
+                break;
+            case 'west': 
+                p.x += u.shape.support(new Vector(0, -1)).sub(u.center).x;
+                q.x += v.shape.support(new Vector(0, -1)).sub(v.center).x;
+                break;
+        }
+        const newGrads = constrainDistance(p, q, '=', 0, { axis: [-y, x] });
+        grads.push(newGrads.map((grad) => new Gradient(grad.point === p ? u.center : v.center, grad.grad)));
     }
     return grads.flat();
 }
