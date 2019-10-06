@@ -9,7 +9,7 @@ import {
     StagedLayout,
     fromSchema,
     nudgePair,
-    constrainNodeChildren,
+    generateNodeChildrenConstraints,
     constrainNodePorts,
     constrainNodeNonoverlap,
     constrainOffset,
@@ -110,7 +110,7 @@ storiesOf('force models', module)
                 optimizer: constraintOptimizer,
                 generator: function* (storage, step) {
                     for (let u of storage.nodes()) {
-                        yield constrainNodeChildren(u);
+                        yield* generateNodeChildrenConstraints(u);
                         yield constrainNodePorts(u);
                         if(nonoverlapScheduler.get(step)) {
                             for(let sibling of (storage as StructuredStorage).siblings(u)) {
@@ -134,7 +134,7 @@ storiesOf('force models', module)
     })
     .add('spring w/ simple nodes', () => {
         const steps = number('# timesteps', 100, { range: true, min: 0, max: 200, step: 1 });
-        const idealLength = number('ideal length', 25);
+        const idealLength = number('ideal length', 15);
         const optimizerType = select('optimizer', ['EnergyOptimizer', 'RMSPropOptimizer', 'BasicOptimizer', 'TrustRegionOptimizer'], 'EnergyOptimizer');
 
         const { nodes, edges } = fromSchema(kGraphSimple.nodes, kGraphSimple.edges);
@@ -224,13 +224,14 @@ storiesOf('force models', module)
                 optimizer: constraintOptimizer,
                 generator: function* (storage, step) {
                     for (let u of storage.nodes()) {
-                        yield constrainNodeChildren(u);
-                        yield constrainNodePorts(u);
+                        // HACK: this needs to come before `constrainShapeCompact`, otherwise the groups will not be the correct size
                         if(nonoverlapScheduler.get(step)) {
                             for(let sibling of (storage as StructuredStorage).siblings(u)) {
                                 yield constrainNodeNonoverlap(u, sibling);
                             }
                         }
+                        yield* generateNodeChildrenConstraints(u);
+                        yield constrainNodePorts(u);
                     }
                 }
             }

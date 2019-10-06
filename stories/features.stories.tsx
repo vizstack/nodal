@@ -17,7 +17,7 @@ import {
     constrainDistance,
     nudgePair,
     nudgePoint,
-    constrainNodeChildren,
+    generateNodeChildrenConstraints,
     constrainNodePorts,
     constrainNodeAlignment,
     constrainNodeGrid,
@@ -60,8 +60,8 @@ function makeLayout(
     const storage = new StructuredStorage(nodes, edges);
     const shortestPath = storage.shortestPaths();
     
-    const forceOptimizer = new BasicOptimizer(0.5);
-    // const forceOptimizer = new EnergyOptimizer({ lrInitial: 0.3, lrMax: 0.5, lrMin: 0.01, wait: 20, decay: 0.9, growth: 1.1, smoothing: 0.5 });
+    // const forceOptimizer = new BasicOptimizer(0.5);
+    const forceOptimizer = new EnergyOptimizer({ lrInitial: 0.3, lrMax: 0.5, lrMin: 0.01, wait: 20, decay: 0.9, growth: 1.1, smoothing: 0.5 });
     const constraintOptimizer = new BasicOptimizer(1);
 
     return new StagedLayout(
@@ -85,7 +85,7 @@ function makeLayout(
             optimizer: constraintOptimizer,
             generator: function* (storage, step, iter) {
                 for (let u of storage.nodes()) {
-                    yield constrainNodeChildren(u);
+                    yield* generateNodeChildrenConstraints(u);
                     yield constrainNodePorts(u);
                 }
                 if(extraConstraints) yield* extraConstraints(storage, step, iter);

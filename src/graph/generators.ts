@@ -1,4 +1,4 @@
-import { Vector } from '../optim';
+import { Vector, Gradient } from '../optim';
 import { Node } from './elements';
 import { Storage, StructuredStorage } from './storage';
 import { nudgePair } from './gradients';
@@ -107,5 +107,49 @@ export function* generateCompactnessForces(
         for(let child of u.children) {
             yield nudgePair(u.center, child.center, -strength*(u.center.distanceTo(child.center)));
         };
+    }
+}
+
+/**
+ * Constrain `u`'s children to be contained within itself, expansing its boundaries if necessary.
+ * @param u
+ *      Node with children to constrain.
+ * @param padding
+ *      Spacing inside the node's boundary.
+ */
+export function* generateNodeChildrenConstraints(
+    u: Node,
+    padding: number = 0,
+) {
+    let controlGrads: Gradient[] = [];
+    let centerGrads: Gradient[] = [];
+    let grads: Gradient[] = [];
+    u.children.map((child) => u.shape.constrainShapeWithin(child.shape, { offset: -padding, expansion: 0.2, masses: { shape: 1, subshape: 10 } })).filter((grads) => grads.length > 0).forEach(([shapeGrad, centerGrad, controlGrad]) => {
+        controlGrads.push(controlGrad);
+        centerGrads.push(centerGrad);
+        grads.push(shapeGrad);
+    });
+    let controlGrad: Gradient | undefined = undefined;
+    let centerGrad: Gradient | undefined = undefined;
+    controlGrads.forEach((grad) => {
+        if (!controlGrad || grad.grad.length() > controlGrad.grad.length()) {
+            controlGrad = grad;
+        }
+    })
+    if (controlGrad) {
+        grads.push(controlGrad);
+    }
+    centerGrads.forEach((grad) => {
+        if (!centerGrad || grad.grad.length() > centerGrad.grad.length()) {
+            centerGrad = grad;
+        }
+    });
+    if (centerGrad) {
+        grads.push(centerGrad);
+    }
+    yield grads;
+
+    if (u.children.length > 0) {
+        yield (u.shape as any).constrainShapeCompact(u.children.map((child) => child.shape), 0);
     }
 }

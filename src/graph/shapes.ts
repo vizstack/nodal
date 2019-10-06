@@ -3,7 +3,10 @@ import {
     Polygon as CollidablePolygon,
     Circle as CollidableCircle,
     Vector as CollidableVector,
+    Box,
 } from 'sat';
+
+import {Box2} from 'three';
 
 /** A lightweight specification that is transformed into a `Shape`. */
 export type ShapeSchema<T extends Shape = Shape> = ReturnType<T['toSchema']>;
@@ -183,6 +186,18 @@ export class Rectangle extends Shape {
             (point.y <= this.center.y + this.control.y + offset) &&
             (point.y >= this.center.y - this.control.y - offset)
         );
+    }
+
+    public constrainShapeCompact(subshapes: Shape[], offset: number = 0): Gradient[] {
+        let box = new Box2();
+        subshapes.forEach((subshape) => {
+            const { x, y, X, Y } = subshape.bounds();
+            box.union(new Box2(new Vector(x, y), new Vector(X, Y)));
+        });
+        box.expandByScalar(offset);
+        const centerGrad = (new Vector()).subVectors(box.getCenter(new Vector()), this.center);
+        const controlGrad = (new Vector()).subVectors(box.max, (new Vector()).addVectors(this.control, this.center));
+        return [new Gradient(this.center, centerGrad), new Gradient(this.control, controlGrad)];
     }
 
     public constrainShapeWithin(subshape: Shape, { masses = { shape: 1, subshape: 1 }, expansion = 0, offset = 0 } = {}) {

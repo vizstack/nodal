@@ -9,6 +9,7 @@ import { Box2 } from 'three';
 
 import { Vector, Gradient } from '../optim';
 import { Node, Edge } from './elements';
+import { Rectangle } from './shapes';
 
 
 // Threshold for distance under which points are considered to be the same.
@@ -202,24 +203,6 @@ export function nudgePoint(
     return points.map((p) => new Gradient(p, grad.clone()));
 }
 
-/**
- * Constrain `u`'s children to be contained within itself, expansing its boundaries if necessary.
- * @param u
- *      Node with children to constrain.
- * @param padding
- *      Spacing inside the node's boundary.
- */
-export function constrainNodeChildren(
-    u: Node,
-    padding: number = 0,
-): Gradient[] {
-    let grads = u.children.map((child) => u.shape.constrainShapeWithin(child.shape, { offset: -padding, expansion: 0.2, masses: { shape: 1, subshape: 10 } })).flat();
-    if (grads.length === 0 && u.children.length > 0) {
-        u.shape.control.multiplyScalar(0.99);
-    }
-    return grads;
-}
-
 // Helper type of port.
 type Port = Node['ports'][keyof Node['ports']];
 
@@ -278,7 +261,7 @@ export function constrainNodePorts(
         }
 
         // Constrain port to `Shape` boundary.
-        grads.push(u.shape.constrainPointOnBoundary(point, { masses: { shape: 10, point: 1 }, offset: 0 }));  // TODO: Add masses.
+        grads.push(u.shape.constrainPointOnBoundary(point, { masses: { shape: 100000, point: 1 }, offset: 0 }));  // TODO: Add masses.
 
         // Attract ports on boundary towards side center.
         switch (side) {
@@ -300,7 +283,11 @@ export function constrainNodePorts(
 
         // Maintain separation gap between ports.
         // TODO: Make into a scheduled value.
-        ports.filter(({ location }) => location !== 'center').forEach(({ point: p }) => grads.push(constrainDistance(point, p, '>=', gap)));
+        ports.filter(({ location }) => location !== 'center').forEach(({ point: p }) => {
+            if (p !== point) {
+                grads.push(constrainDistance(point, p, '>=', gap))
+            }
+        });
 
         // Only location zones and ordering for more specific sides.
         if (location === 'boundary') return;

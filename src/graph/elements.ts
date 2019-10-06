@@ -138,7 +138,7 @@ export function fromSchema(
         return {
             id,
             center: centerpt,
-            shape: shapeCreator(shape || { type: 'rectangle', width: 0, height: 0 }, centerpt),
+            shape: shapeCreator(shape || { type: 'rectangle', width: 1, height: 1 }, centerpt),
             fixed: fixed || false,
             children: (children as any) || [],
             ports: ports ? mapValues(ports, ({ location, order, point }) => ({
