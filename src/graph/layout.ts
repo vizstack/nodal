@@ -1,4 +1,4 @@
-import { Optimizer, BasicOptimizer, EnergyOptimizer, Gradient } from '../optim';
+import { Optimizer, Gradient } from '../optim';
 import { Storage } from './storage';
 
 /**
@@ -6,6 +6,8 @@ import { Storage } from './storage';
  * executing the entire procedure automatically and stepping through the procedure manually.
  */
 export abstract class Layout {
+    constructor(public storage: Storage) {}
+
     /**
      * Runs the layout optimization until some convergence criterion is met.
      */
@@ -17,117 +19,81 @@ export abstract class Layout {
     public abstract step(): void;
 }
 
-/** Configuration options for a `ForceConstraintLayout`. */
-export type ForceConstraintLayoutConfig = {
-    numSteps: number;
-    numForceIters: number;
-    numConstraintIters: number;
-    forceOptimizer: Optimizer;
-    constraintOptimizer: Optimizer;
-    onStart: (elems: Storage, step: number) => boolean;
-    onStep: (elems: Storage, step: number) => boolean;
-    onEnd: (elems: Storage, step: number) => void;
+type Stage = {
+    iterations: number,
+    optimizer: Optimizer,
+    generator: (storage: Storage, step: number, iter: number) => IterableIterator<Gradient[]>,
 };
 
 /**
- * A `ForceConstraintLayout` performs a fixed number of optimization steps, and each step
- * performs some iterations of 'force' optimization then 'constraint' optimization. Whereas the
- * 'force' gradients are weighted by some adaptive learning rate, the 'constraint' gradients are
- * always weighted by 1. This enables the kind of 'constraint projection' described in "Scalable
- * versatile, and simple constrained graph layout" (Dwyer 2009). Another interpretation is that
- * 'force' gradients have magitudes in a different space than the points (force-space), whereas
- * 'constraint' gradients are in the same space (position-space).
+ * A `StagedLayout` performs a fixed number of optimization steps, where each step involved
+ * executing all stages of a computation. A single stage uses a generator function to generate
+ * gradients, which optimizer applies. Each stage may be repeated for a different fixed number
+ * of iterations.
  */
-export class ForceConstraintLayout extends Layout {
-    protected config: ForceConstraintLayoutConfig;
-    protected steps: number;
+export class StagedLayout extends Layout {
+    public onStart: (elems: Storage, step: number) => boolean;
+    public onStep: (elems: Storage, step: number) => boolean;
+    public onEnd: (elems: Storage, step: number) => void;
+    public stages: Stage[];
+
+    private _totalSteps: number;
+    private _finishedSteps: number;
+
     constructor(
-        protected storage: Storage,
-        protected forceIterFn: (storage: Storage, step: number, iter: number) => IterableIterator<Gradient[]>,
-        protected constraintIterFn: (storage: Storage, step: number, iter: number) => IterableIterator<Gradient[]>,
-        config: Partial<ForceConstraintLayoutConfig> = {},
-    ) {
-        super();
-        const {
-            numSteps = 10,
-            numForceIters = 1,
-            numConstraintIters = 10,
-            forceOptimizer = new EnergyOptimizer(),
-            constraintOptimizer = new BasicOptimizer(1),
+        storage: Storage,
+        {
+            steps = 1,
             onStart = () => true,
             onStep = () => true,
             onEnd = () => undefined,
-        } = config;
-        this.config = {
-            numSteps,
-            numForceIters,
-            numConstraintIters,
-            forceOptimizer,
-            constraintOptimizer,
-            onStart,
-            onStep,
-            onEnd,
-        };
-        this.steps = 0;
+        }: Partial<{
+            steps: number,
+            onStart: (elems: Storage, step: number) => boolean;
+            onStep: (elems: Storage, step: number) => boolean;
+            onEnd: (elems: Storage, step: number) => void;
+        }>,
+        ...stages: Stage[]
+    ) {
+        super(storage);
+        this.onStart = onStart;
+        this.onStep = onStep;
+        this.onEnd = onEnd;
+        this.stages = stages;
+
+        this._totalSteps = steps;
+        this._finishedSteps = 0;
     }
 
-    // Manually stepping does not contribute to counter.
     public start() {
-        const { onStart, onEnd } = this.config;
-        if (!onStart(this.storage, this.steps)) return;
-        while (this.steps < this.config.numSteps) {
-            this.steps += 1;
+        const { onStart, onEnd } = this;
+        if (!onStart(this.storage, this._finishedSteps)) return;
+        while (this._finishedSteps < this._totalSteps) {
+            this._finishedSteps += 1;
             if (this.step() === false) {
                 // If break out early, do not trigger `onEnd`.
                 return;
             }
         }
-        onEnd(this.storage, this.steps);
+        onEnd(this.storage, this._finishedSteps);
     }
 
+    // Manually stepping does not contribute to counter.
     public step(): boolean {
-        const {
-            numForceIters,
-            numConstraintIters,
-            forceOptimizer,
-            constraintOptimizer,
-            onStep,
-        } = this.config;
-
-        for (let i = 1; i <= numForceIters; i++) {
-            const forceGradGen = this.forceIterFn(this.storage, this.steps, i);
-            let forceGrads;
-            while(true) {
-                // Must use manual iteration, not for-of loop, in order to access return value.
-                forceGrads = forceGradGen.next();
-                if(forceGrads.value) forceOptimizer.step(forceGrads.value);
-                if(forceGrads.done) break;
+        const { onStep } = this;
+        for (let stage of this.stages) {
+            for (let i = 1; i <= stage.iterations; i++) {
+                const gen = stage.generator(this.storage, this._finishedSteps, i);
+                let grads;
+                while(true) {
+                    // Must use manual iteration, not for-of loop, in order to access return value.
+                    grads = gen.next();
+                    if(grads.value) stage.optimizer.step(grads.value);
+                    if(grads.done) break;
+                }
+                stage.optimizer.update();
             }
-            forceOptimizer.update();
         }
-
-        for (let j = 1; j <= numConstraintIters; j++) {
-            const constraintGradGen = this.constraintIterFn(this.storage, this.steps, j);
-            let constraintGrads;
-            while(true) {
-                constraintGrads = constraintGradGen.next();
-                if(constraintGrads.value) constraintOptimizer.step(constraintGrads.value);
-                if(constraintGrads.done) break;
-            }
-            constraintOptimizer.update();
-        }
-
-        return onStep(this.storage, this.steps);
-    }
-
-    public onStart(onStart: ForceConstraintLayoutConfig['onStart']) {
-        this.config.onStart = onStart;
-    }
-
-    public onStep(onStep: ForceConstraintLayoutConfig['onStep']) {
-        this.config.onStep = onStep;
-    }
-    public onEnd(onEnd: ForceConstraintLayoutConfig['onEnd']) {
-        this.config.onEnd = onEnd;
+        return onStep(this.storage, this._finishedSteps);
     }
 }

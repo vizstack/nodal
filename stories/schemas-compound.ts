@@ -3,12 +3,10 @@ import { NodeSchema, EdgeSchema } from '../src';
 const kSize = 15;
 
 const kGraphCompound: {
-    nodesChildren: NodeSchema[],
-    nodesParents: NodeSchema[],
+    nodes: NodeSchema[],
     edges: EdgeSchema[],
 } = {
-    nodesChildren: [],
-    nodesParents: [
+    nodes: [
         { id: 'p0', children: [], meta: { group: 0 } },
         { id: 'p1', children: [], meta: { group: 1 } },
         { id: 'p2', children: [], meta: { group: 2 } },
@@ -287,8 +285,8 @@ const edges = [
 ];
 
 parents.forEach((parent, child) => {
-    kGraphCompound.nodesChildren.push({ id: `n${child}`, shape: { type: 'rectangle', width: kSize, height: kSize }, meta: { group: parent } });
-    kGraphCompound.nodesParents[parent].children!.push(`n${child}`)
+    kGraphCompound.nodes.push({ id: `n${child}`, shape: { type: 'rectangle', width: kSize, height: kSize }, meta: { group: parent } });
+    kGraphCompound.nodes[parent].children!.push(`n${child}`);
 });
 
 edges.forEach(({ s, t }) => {

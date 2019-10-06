@@ -5,13 +5,15 @@ import { number, boolean } from '@storybook/addon-knobs';
 import { kGraphFive } from './schemas-five';
 import {
     Node,
+    Gradient,
     Edge,
     NodeId,
     NodeSchema,
     EdgeSchema,
     fromSchema,
+    Storage,
     StructuredStorage,
-    ForceConstraintLayout,
+    StagedLayout,
     constrainDistance,
     nudgePair,
     nudgePoint,
@@ -26,214 +28,155 @@ import {
     nudgeAngle,
     BasicOptimizer,
     EnergyOptimizer,
-    Vector
+    Vector,
+    generateSpringForces,
+    generateCompactnessForces,
 } from '../src';
 import { Graph } from './Graph';
 import { kGraphTwo } from './schemas-two';
-import { Rectangle } from '../src/graph/shapes';
 
-function* forceSpringModel(
-    elems: StructuredStorage,
-    shortestPath: (u: Node, v: Node) => number | undefined,
-    idealLength: number,
-    compactness: number,
-) {
-    const visited: Set<Node> = new Set();
-    for(let u of elems.nodes()) {
-        visited.add(u);
-        // Compound nodes should pull children closer.
-        if(u.children.length > 0) {
-            for(let child of u.children) {
-                yield nudgePair(u.center, child.center, -compactness*(u.center.distanceTo(child.center)));
-            };
-        }
-        for(let v of elems.nodes()) {
-            if(visited.has(v)) continue;
-            if(u.fixed && v.fixed) continue;
-            const [wu, wv] = [u.fixed ? 0 : 1, v.fixed ? 0 : 1];
+function makeLayout(
+    nodeSchemas: NodeSchema[],
+    edgeSchemas: EdgeSchema[],
+    {
+        steps = 200,
+        idealLength = 30,
+        compactness = 10,
+        forceIterations = 1,
+        constraintIterations = 3,
+        extraForces = undefined,
+        extraConstraints = undefined,
+    }: Partial<{
+        steps: number,
+        idealLength: number,
+        compactness: number,
+        forceIterations: number,
+        constraintIterations: number,
+        extraForces?: (storage: Storage, step: number, iter: number) => IterableIterator<Gradient[]>
+        extraConstraints?: (storage: Storage, step: number, iter: number) => IterableIterator<Gradient[]>
+    }>
+): StagedLayout {
+    const { nodes, edges } = fromSchema(nodeSchemas, edgeSchemas);
+    const storage = new StructuredStorage(nodes, edges);
+    const shortestPath = storage.shortestPaths();
+    
+    const forceOptimizer = new BasicOptimizer(0.5);
+    // const forceOptimizer = new EnergyOptimizer({ lrInitial: 0.3, lrMax: 0.5, lrMin: 0.01, wait: 20, decay: 0.9, growth: 1.1, smoothing: 0.5 });
+    const constraintOptimizer = new BasicOptimizer(1);
 
-            // Spring force. Attempt to reach ideal distance between all pairs,
-            // except unconnected pairs that are farther away than ideal.
-            const uvPath = shortestPath(u, v);
-            if(uvPath === undefined) continue; // Ignore disconnected components.
-            const idealDistance = idealLength * uvPath;
-            const axis = (new Vector()).subVectors(v.center, u.center);
-            const actualDistance = axis.length() > 0 ? u.shape.boundary(axis).distanceTo(v.shape.boundary(axis.negate())) : 0;
-            // const actualDistance = separation({ center: u.center, width: u.shape.width, height: u.shape.height}, { center: v.center, width: v.shape.width, height: v.shape.height});
-            if(elems.existsEdge(u, v, true) && actualDistance > idealDistance) {
-                // Attractive force between edges if too far.
-                const delta = actualDistance - idealDistance;
-                yield nudgePair(u.center, v.center, [-wu*delta, -wv*delta]);
-            } else if (!elems.hasAncestor(u, v)) {
-                // Repulsive force between node pairs if too close.
-                // console.log("repulsive", actualDistance, idealDistance);
-                if(actualDistance < idealDistance) {
-                    const delta = (idealDistance - actualDistance) / Math.pow(uvPath, 2);
-                    yield nudgePair(u.center, v.center, [wu*delta, wv*delta]);
+    return new StagedLayout(
+        storage,
+        { steps },
+        {
+            iterations: forceIterations,
+            optimizer: forceOptimizer,
+            generator: function* (storage, step, iter) {
+                yield* generateSpringForces(
+                    storage as StructuredStorage,
+                    idealLength,
+                    shortestPath,
+                );
+                yield* generateCompactnessForces(storage, compactness);
+                if(extraForces) yield* extraForces(storage, step, iter);
+            }
+        },
+        {
+            iterations: constraintIterations,
+            optimizer: constraintOptimizer,
+            generator: function* (storage, step, iter) {
+                for (let u of storage.nodes()) {
+                    yield constrainNodeChildren(u);
+                    yield constrainNodePorts(u);
                 }
+                if(extraConstraints) yield* extraConstraints(storage, step, iter);
             }
         }
-    }
+    );
 }
-
-function* constrainNodes(elems: StructuredStorage, step: number) {
-    for (let u of elems.nodes()) {
-        // Apply no-overlap to all siblings.
-        if(step > 300) {
-            for(let sibling of elems.siblings(u)) {
-                yield constrainNodeNonoverlap(u, sibling);
-            }
-        }
-        yield constrainNodeChildren(u, 10);
-        // yield u.shape.constrainControl();
-        yield constrainNodePorts(u);
-    }
-}
-
-const configForceElectrical = {
-    numSteps: 500, numConstraintIters: 5, numForceIters: 1,
-    forceOptimizer: new BasicOptimizer(0.5),
-};
 
 storiesOf('features', module)
     .add('simple nodes', () => {
-        const { nodes, edges } = fromSchema(kGraphFive.nodesEqual, kGraphFive.edgesAcyclic);
-        const elems = new StructuredStorage(nodes, edges);
-        const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const layout = new ForceConstraintLayout(
-            elems,
-            function* (elems) {
-                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
-            },
-            function* (elems, step) {
-                yield* constrainNodes(elems as StructuredStorage, step);
-            },
-            configForceElectrical,
+        const layout = makeLayout(
+            kGraphFive.nodesEqual,
+            kGraphFive.edgesAcyclic,
+            { idealLength },
         );
-        return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
-        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('simple nodes (unequal)', () => {
-        const { nodes, edges } = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesAcyclic);
-        const elems = new StructuredStorage(nodes, edges);
-        const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const layout = new ForceConstraintLayout(
-            elems,
-            function* (elems) {
-                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
-            },
-            function* (elems, step) {
-                yield* constrainNodes(elems as StructuredStorage, step);
-            },
-            configForceElectrical,
+        const layout = makeLayout(
+            kGraphFive.nodesUnequal,
+            kGraphFive.edgesAcyclic,
+            { idealLength },
         );
-        return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
-        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('disconnected components', () => {
-        const { nodes, edges } = fromSchema(kGraphFive.nodesUnequal, []);
-        const elems = new StructuredStorage(nodes, edges);
-        const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const layout = new ForceConstraintLayout(
-            elems,
-            function* (elems) {
-                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
-            },
-            function* (elems, step) {
-                yield* constrainNodes(elems as StructuredStorage, step);
-            },
-            configForceElectrical,
+        const layout = makeLayout(
+            kGraphFive.nodesUnequal,
+            [],
+            { idealLength },
         );
-        return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
-        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('compound nodes', () => {
-        const { nodes, edges } = fromSchema(kGraphFive.nodesNested, kGraphFive.edgesAcyclic);
-        const elems = new StructuredStorage(nodes, edges);
-        const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
         const compactness = number('group compactness', 0.5);
-        const layout = new ForceConstraintLayout(
-            elems,
-            function* (elems) {
-                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, compactness);
-            },
-            function* (elems, step) {
-                yield* constrainNodes(elems as StructuredStorage, step);
-            },
-            configForceElectrical,
+        const layout = makeLayout(
+            kGraphFive.nodesNested,
+            kGraphFive.edgesAcyclic,
+            { idealLength, compactness },
         );
-        return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
-        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('unidirectional flow', () => {
-        const { nodes, edges } = fromSchema(kGraphFive.nodesEqual, kGraphFive.edgesAcyclic);
-        const elems = new StructuredStorage(nodes, edges);
-        const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const layout = new ForceConstraintLayout(
-            elems,
-            function* (elems) {
-                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, 0);
-            },
-            function* (elems, step) {
-                yield* constrainNodes(elems as StructuredStorage, step);
-
-                // Constrain targets to be at larger y-position.
+        const flowSeparation = number('flow separation', 50);
+        const layout = makeLayout(
+            kGraphFive.nodesEqual,
+            kGraphFive.edgesAcyclic,
+            { idealLength,
+              extraConstraints: function* (storage, step) {
                 if(step > 10) {
-                    for (let e of elems.edges()) {
-                        yield constrainOffset(e.source.node.center, e.target.node.center, ">=", 50, [0, 1], { masses: [e.source.node.fixed ? 1e9 : 1, e.target.node.fixed ? 1e9 : 1] });
+                    for (let e of storage.edges()) {
+                        yield constrainOffset(e.source.node.center, e.target.node.center, ">=", flowSeparation, [0, 1], { masses: [e.source.node.fixed ? 1e9 : 1, e.target.node.fixed ? 1e9 : 1] });
                     }
                 }
+              }
             },
-            configForceElectrical,
         );
-        return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
-        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('multidirectional flow', () => {
-        const { nodes, edges } = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesTree);
-        const elems = new StructuredStorage(nodes, edges);
-        const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const layout = new ForceConstraintLayout(
-            elems,
-            function* (elems) {
-                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, 0);
-            },
-            function* (elems, step) {
-                yield* constrainNodes(elems as StructuredStorage, step);
-
+        const flowSeparation = number('flow separation', 50);
+        const layout = makeLayout(
+            kGraphFive.nodesUnequal,
+            kGraphFive.edgesTree,
+            { idealLength,
+              extraConstraints: function* (storage) {
                 function constrain(uid: NodeId, vid: NodeId, direction: [number, number]) {
-                    const u = elems.node(uid);
-                    const v = elems.node(vid);
-                    return constrainOffset(u.center, v.center, ">=", 50, direction, { masses: [u.fixed ? 1e9 : 1, v.fixed ? 1e9 : 1] });
+                    const u = storage.node(uid);
+                    const v = storage.node(vid);
+                    return constrainOffset(u.center, v.center, ">=", flowSeparation, direction, { masses: [u.fixed ? 1e9 : 1, v.fixed ? 1e9 : 1] });
                 }
 
-                // Constrain targets along different axes.
                 yield constrain('n0', 'n1', [1, 0]);
                 yield constrain('n1', 'n2', [0, 1]);
                 yield constrain('n2', 'n3', [1, 0]);
                 yield constrain('n2', 'n4', [0, 1]);
-                
+              }
             },
-            configForceElectrical,
         );
-        return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
-        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('named ports', () => {
-        console.log('named ports');
-        const nodesUnequalWithPorts = kGraphFive.nodesUnequal.map((n) => Object.assign({ ports: {
+        const idealLength = number('ideal length', 30);
+        const flowSeparation = number('flow separation', 50);
+        const nodesUnequalWithPorts: NodeSchema[] = kGraphFive.nodesUnequal.map((n) => Object.assign({ ports: {
             e1: { location: 'east', order: 1 },
             w1: { location: 'west', order: 1 }, w2: { location: 'west', order: 2 },
             n1: { location: 'north', order: 1 },
@@ -246,141 +189,99 @@ storiesOf('features', module)
             { id: 'e2->3', source: { id: 'n2', port: 'e1' }, target: { id: 'n3', port: 'w1' } },
             { id: 'e2->4', source: { id: 'n2', port: 's1' }, target: { id: 'n4', port: 'n1' } },
         ];
-        const { nodes, edges } = fromSchema(nodesUnequalWithPorts, edgesTreeWithPorts);
-        const elems = new StructuredStorage(nodes, edges);
-        const shortestPath = elems.shortestPaths();
-        const idealLength = number('ideal length', 30);
-        const layout = new ForceConstraintLayout(
-            elems,
-            function* (elems) {
-                yield* forceSpringModel((elems as StructuredStorage), shortestPath, idealLength, 0);
-            },
-            function* (elems, step) {
-                yield* constrainNodes(elems as StructuredStorage, step);
-
+        const layout = makeLayout(
+            nodesUnequalWithPorts,
+            edgesTreeWithPorts,
+            { idealLength,
+              extraConstraints: function* (storage) {
                 function constrain(uid: NodeId, vid: NodeId, direction: [number, number]) {
-                    const u = elems.node(uid);
-                    const v = elems.node(vid);
-                    return constrainOffset(u.center, v.center, ">=", 50, direction, { masses: [u.fixed ? 1e9 : 1, v.fixed ? 1e9 : 1] });
+                    const u = storage.node(uid);
+                    const v = storage.node(vid);
+                    return constrainOffset(u.center, v.center, ">=", flowSeparation, direction, { masses: [u.fixed ? 1e9 : 1, v.fixed ? 1e9 : 1] });
                 }
 
-                // Constrain targets along different axes.
                 yield constrain('n0', 'n1', [1, 0]);
                 yield constrain('n1', 'n2', [0, 1]);
                 yield constrain('n2', 'n3', [1, 0]);
                 yield constrain('n2', 'n4', [0, 1]);
-                
+              }
             },
-            configForceElectrical,
         );
-        return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
-        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('oriented edges', () => {
-        const { nodes, edges } = fromSchema(kGraphTwo.nodes, kGraphTwo.edges);
-        const elems = new StructuredStorage(nodes, edges);
-        const shortestPath = elems.shortestPaths();
-        const idealLength = number('ideal length', 100);
+        const idealLength = number('ideal length', 30);
         const orientationAngle = number('orientation angle', 45, { range: true, min: 0, max: 360, step:  1 })
-        const orientationStrength = number('orientation strength', 10);
-        const layout = new ForceConstraintLayout(
-            elems,
-            function* (elems) {
-                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
-                
-                for(let edge of elems.edges()) {
+        const orientationStrength = number('orientation strength', 100);
+        const layout = makeLayout(
+            kGraphTwo.nodes,
+            kGraphTwo.edges,
+            { idealLength,
+              extraForces: function* (storage) {
+                for(let edge of storage.edges()) {
                     yield nudgeAngle(edge.source.node.center, edge.target.node.center, orientationAngle, orientationStrength);
                 }
+              }
             },
-            function* (elems, step) {
-                yield* constrainNodes(elems as StructuredStorage, step);
-            },
-            configForceElectrical,
         );
-        return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
-        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('node distance and offset', () => {
-        const { nodes, edges } = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesTree);
-        const elems = new StructuredStorage(nodes, edges);
-        const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const layout = new ForceConstraintLayout(
-            elems,
-            function* (elems) {
-                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
+        const layout = makeLayout(
+            kGraphFive.nodesUnequal,
+            kGraphFive.edgesTree,
+            { idealLength,
+              extraConstraints: function* (storage) {
+                yield constrainNodeOffset(storage.node('n0'), storage.node('n1'), '>=', 100, [1, 1]);
+                yield constrainNodeDistance(storage.node('n1'), storage.node('n2'), '>=', 100);
+                yield constrainNodeOffset(storage.node('n2'), storage.node('n3'), '>=', 100, [-1, 1]);
+                yield constrainNodeDistance(storage.node('n2'), storage.node('n4'), '>=', 100, {axis: [1, 0]});
+              }
             },
-            function* (elems, step) {
-                yield* constrainNodes(elems as StructuredStorage, step);
-
-                yield constrainNodeOffset(elems.node('n0'), elems.node('n1'), '>=', 100, [1, 1]);
-                yield constrainNodeDistance(elems.node('n1'), elems.node('n2'), '>=', 100);
-                yield constrainNodeOffset(elems.node('n2'), elems.node('n3'), '>=', 100, [-1, 1]);
-                yield constrainNodeDistance(elems.node('n2'), elems.node('n4'), '>=', 100, {axis: [1, 0]});
-            },
-            configForceElectrical,
         );
-        return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
-        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('alignment', () => {
-        const { nodes, edges } = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesTree);
-        const elems = new StructuredStorage(nodes, edges);
-        const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
-        const layout = new ForceConstraintLayout(
-            elems,
-            function* (elems) {
-                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
-            },
-            function* (elems, step) {
-                yield* constrainNodes(elems as StructuredStorage, step);
-
+        const layout = makeLayout(
+            kGraphFive.nodesUnequal,
+            kGraphFive.edgesTree,
+            { idealLength,
+              extraConstraints: function* (storage) {
                 function align(u: NodeId, v: NodeId, axis: [number, number]) {
-                    return constrainNodeAlignment([elems.node(u), elems.node(v)], axis);
+                    return constrainNodeAlignment([storage.node(u), storage.node(v)], axis);
                 }
 
                 yield align('n0', 'n1', [1, 0]);
                 yield align('n1', 'n2', [0, 1]);
                 yield align('n2', 'n3', [1, 0]);
                 yield align('n2', 'n4', [0, 1]);
+              }
             },
-            configForceElectrical,
         );
-        return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
-        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('grid snap', () => {
         // TODO: Need global grid snap transformation, so nudges don't cause overlap.
-        const { nodes, edges } = fromSchema(kGraphFive.nodesUnequal, kGraphFive.edgesAcyclic);
-        const elems = new StructuredStorage(nodes, edges);
-        const shortestPath = elems.shortestPaths();
         const idealLength = number('ideal length', 30);
         const gridSnap = boolean('grid snap', true);
         const gridX = number('grid x', 5);
         const gridY = number('grid y', 10);
-        const layout = new ForceConstraintLayout(
-            elems,
-            function* (elems) {
-                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
-            },
-            function* (elems, step) {
-                yield* constrainNodes(elems as StructuredStorage, step);
-                if(gridSnap && step > 100) {
-                    for(let u of elems.nodes()) {
+        const layout = makeLayout(
+            kGraphFive.nodesUnequal,
+            kGraphFive.edgesTree,
+            { idealLength,
+              extraConstraints: function* (storage, step) {
+                if(gridSnap && step > 50) {
+                    for(let u of storage.nodes()) {
                         yield constrainNodeGrid(u, gridX, gridY);
                     }
                 }
+              }
             },
-            configForceElectrical,
         );
-        return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
-        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('limp noodle', () => {
         const fire: (idx: number) => {nodes: NodeSchema[], edges: EdgeSchema[]} = (idx: number) => {
@@ -586,41 +487,28 @@ storiesOf('features', module)
                 id: "n5:conv1",
             },
         })
-        const { nodes, edges } = fromSchema(nodeSchemas, edgeSchemas);
-        const elems = new StructuredStorage(nodes, edges);
-        const shortestPath = elems.shortestPaths();
+
         const idealLength = number('ideal length', 20);
         const flowSpacing = number('flow spacing', 30);
-        const layout = new ForceConstraintLayout(
-            elems,
-            function* (elems) {
-                yield* forceSpringModel(elems as StructuredStorage, shortestPath, idealLength, 0);
-                for(let e of elems.edges()) {
-                    // yield nudgeAngle(e.source.node.center, e.target.node.center, [90, 180], 200)
+        const flowStart = number('flow timestep start', 0);
+        const orientationStrength = number('orient to 90/270', 0);
+        const layout = makeLayout(
+            nodeSchemas,
+            edgeSchemas,
+            { idealLength, compactness: 0, forceIterations: 1, constraintIterations: 5,
+              extraForces: function* (storage) {
+                for(let e of storage.edges()) {
+                    yield nudgeAngle(e.source.node.center, e.target.node.center, [90, 270], orientationStrength);
                 }
-            },
-            function* (elems, step) {
-                yield* constrainNodes(elems as StructuredStorage, step);
-
-                if (step > 0) {
-                    for (let {source, target} of elems.edges()) {
-                        yield constrainNodeOffset(source.node, target.node, ">=", 30, [0, 1])
+              },
+              extraConstraints: function* (storage, step) {
+                if (step > flowStart) {
+                    for (let {source, target} of storage.edges()) {
+                        yield constrainNodeOffset(source.node, target.node, ">=", flowSpacing, [0, 1]);
                     }
-                    // for(let { source, target } of elems.edges()) {
-                    //     const sourceShape = (source.node.shape as Rectangle).toSchema();
-                    //     const targetShape = (target.node.shape as Rectangle).toSchema();
-                    //     const offset = (sourceShape.height + targetShape.height) / 2;
-                    //     const portLocations: ["south", "north"] = ['south', 'north'];
-                    //     const flowAxis: [number, number] = [0, 1];
-                    //     yield constrainOffset(source.node.center, target.node.center, '>=', flowSpacing + offset, flowAxis);
-                    //     source.node.ports[source.port].location = portLocations[0];  // TODO: Remove this lol!
-                    //     target.node.ports[target.port].location = portLocations[1];
-                    // }
                 }
+              }
             },
-            configForceElectrical,
         );
-        return (
-            <Graph key={`${Math.random()}`} layout={layout} storage={elems} animated interactive />
-        );
-    })
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
+    });

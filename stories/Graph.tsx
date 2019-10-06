@@ -1,9 +1,8 @@
 import * as React from 'react';
-import { Node, Edge, Storage, ForceConstraintLayout, NodeId } from '../src/graph';
+import { Node, Edge, Storage, StagedLayout, NodeId } from '../src/graph';
 
 type GraphProps = {
-    storage: Storage;
-    layout: ForceConstraintLayout;
+    layout: StagedLayout;
 
     /** Whether to run animation during layout process. */
     animated?: boolean;
@@ -44,43 +43,43 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     };
     constructor(props: GraphProps) {
         super(props);
-        const { layout, storage, animated} = this.props;
+        const { layout, animated} = this.props;
         this.state = {
-            nodes: storage.nodes(),
-            edges: storage.edges(),
-            bounds: storage.bounds(),
+            nodes: layout.storage.nodes(),
+            edges: layout.storage.edges(),
+            bounds: layout.storage.bounds(),
             drag: undefined,
         };
         if(animated) {
             // Animated graphs should repeatedly stop after after every step in order to give React
             // time to rerender. This will continue until all iterations are done.
-            layout.onStep((elems) => {
+            layout.onStep = (storage) => {
                 this.setState({
-                    nodes: elems.nodes(),
-                    edges: elems.edges(),
-                    bounds: elems.bounds(),
+                    nodes: storage.nodes(),
+                    edges: storage.edges(),
+                    bounds: storage.bounds(),
                 });
                 setTimeout(() => layout.start(), kAnimationTick);
                 return false;
-            });
+            };
         } else {
             // Unanimated graphs should only update state after the initial layout ends, and on
             // every step afterwards, when the user manipulates the graph.
-            layout.onEnd((elems) => {
+            layout.onEnd = (storage) => {
                 this.setState({
-                    nodes: elems.nodes(),
-                    edges: elems.edges(),
-                    bounds: elems.bounds(),
+                    nodes: storage.nodes(),
+                    edges: storage.edges(),
+                    bounds: storage.bounds(),
                 });
-                layout.onStep((elems) => {
+                layout.onStep = (storage) => {
                     this.setState({
-                        nodes: elems.nodes(),
-                        edges: elems.edges(),
-                        bounds: elems.bounds(),
+                        nodes: storage.nodes(),
+                        edges: storage.edges(),
+                        bounds: storage.bounds(),
                     });
                     return true;
-                });
-            });
+                };
+            };
         }
     }
     componentDidMount() {
@@ -106,14 +105,14 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     onMouseUp = () => {
         if(!this.props.interactive) return;
         if(this.state.drag !== undefined) {
-            const { storage } = this.props;
+            const { layout } = this.props;
             const { node, fixed } = this.state.drag;
             node.fixed = fixed;
             this.setState({ drag: undefined });
             this.setState({
-                nodes: storage.nodes(),
-                edges: storage.edges(),
-                bounds: storage.bounds(),
+                nodes: layout.storage.nodes(),
+                edges: layout.storage.edges(),
+                bounds: layout.storage.bounds(),
             });
         }
     }

@@ -1,5 +1,5 @@
 import { Vector2 } from 'three';
-import { Scheduler } from './scheduler';
+import { NumberScheduler } from './scheduler';
 
 /**
  * A `Vector` in 2D space is the base entity manipulated by the `Optimizer`. All higher-level
@@ -50,7 +50,7 @@ export class BasicOptimizer extends Optimizer {
 export class ScheduledOptimizer extends Optimizer {
     protected _timestep: number;
     protected _lr: number;
-    constructor(protected scheduler: Scheduler) {
+    constructor(protected scheduler: NumberScheduler) {
         super();
         this._timestep = 0;
         this._lr = scheduler.get(0);

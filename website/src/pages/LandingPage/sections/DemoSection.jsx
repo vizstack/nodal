@@ -128,7 +128,7 @@ class DemoSection extends React.Component {
   static _watchedState = ['animated', 'nodeChildren', 'nodeShape', 'nodePorts', 'edgeOrientation', 'edgeVariableLength', 'edgeRouting', 'constraintsFlow', 'constraintsFlowDirection', 'constraintsNonoverlap', 'constraintsAlignment', 'constraintsCircular', 'constraintsGrid'];
 
   _watchedStateChanged(prevState) {
-    for(let key of this._watchedState) {
+    for(let key of DemoSection._watchedState) {
       if(this.state[key] !== prevState[key]) {
         return true;
       }
