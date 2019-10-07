@@ -1,7 +1,7 @@
 /*eslint-disable*/
 import React from "react";
 // react components for routing our app without refresh
-// import { Link } from "gatsby";
+import { Link } from "gatsby";
 
 // @material-ui/core components
 import withStyles from "@material-ui/core/styles/withStyles";
@@ -50,22 +50,24 @@ function HeaderLinks({ ...props }) {
         />
       </ListItem> */}
       <ListItem className={classes.listItem}>
-        <Button
-          href="nodal/examples"
-          color="transparent"
-          className={classes.navLink}
-        >
-          Examples
-        </Button>
+        <Link to="/examples" className={classes.link}>
+          <Button
+            color="transparent"
+            className={classes.navLink}
+          >
+            Examples
+          </Button>
+        </Link>
       </ListItem>
       <ListItem className={classes.listItem}>
-        <Button
-          href="nodal/docs"
-          color="transparent"
-          className={classes.navLink}
-        >
-          Docs
-        </Button>
+        <Link to="/docs" className={classes.link}>
+          <Button
+            color="transparent"
+            className={classes.navLink}
+          >
+            Docs
+          </Button>
+        </Link>
       </ListItem>
       <ListItem className={classes.listItem}>
         <Tooltip
@@ -197,6 +199,10 @@ const styles = theme => ({
   ...tooltip,
   marginRight5: {
     marginRight: "5px"
+  },
+  link: {
+    color: "inherit !important",
+    textDecoration: "none",
   }
 });
 
