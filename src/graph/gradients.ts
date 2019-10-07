@@ -267,16 +267,20 @@ export function* generateNodePortConstraints(
             case 'north':
                 // Scale the boundary coordinates by a close-to-1 constant so that the ports do not exactly
                 // align with them and cause jitter
-                yield nudgePair(new Vector(cx, y * 0.9), point, [0, -centering]);
+                yield nudgePair(new Vector(cx, y * 0.99), point, [0, -centering]);
+                yield constrainOffset(u.center, point, "=", -height/2, [0, 1], {masses: kPortMasses});
                 break;
             case 'south':
-                yield nudgePair(new Vector(cx, Y * 0.9), point, [0, -centering]);
+                yield nudgePair(new Vector(cx, Y * 0.99), point, [0, -centering]);
+                yield constrainOffset(u.center, point, "=", height/2, [0, 1], {masses: kPortMasses});
                 break;
             case 'west':
-                yield nudgePair(new Vector(x * 0.9, cy), point, [0, -centering]);
+                yield nudgePair(new Vector(x * 0.99, cy), point, [0, -centering]);
+                yield constrainOffset(u.center, point, "=", -width/2, [1, 0], {masses: kPortMasses});
                 break;
             case 'east':
-                yield nudgePair(new Vector(X * 0.9, cy), point, [0, -centering]);
+                yield nudgePair(new Vector(X * 0.99, cy), point, [0, -centering]);
+                yield constrainOffset(u.center, point, "=", width/2, [1, 0], {masses: kPortMasses});
                 break;
         }
 
@@ -298,16 +302,16 @@ export function* generateNodePortConstraints(
         // Use the normal vectors of the rising/falling diagonals to target a particular zone,
         // e.g. positive along rising diagonal normal and negative along falling diagonal
         // normal = west.
-        const risingNormalOp = location === 'north' || location === 'west' ? '>=' : '<=';
-        const fallingNormalOp = location === 'north' || location === 'east' ? '>=' : '<=';
-        yield constrainOffset(u.center, point, risingNormalOp, 0, [-height, -width], { masses: kPortMasses });
-        yield constrainOffset(u.center, point, fallingNormalOp, 0, [height, -width], { masses: kPortMasses });
+        // const risingNormalOp = location === 'north' || location === 'west' ? '>=' : '<=';
+        // const fallingNormalOp = location === 'north' || location === 'east' ? '>=' : '<=';
+        // yield constrainOffset(u.center, point, risingNormalOp, 0, [-height, -width], { masses: kPortMasses });
+        // yield constrainOffset(u.center, point, fallingNormalOp, 0, [height, -width], { masses: kPortMasses });
 
         // Constrain order for ordered ports at the same side.
         if (order !== undefined) {
             for (let port of orders[location]) {
                 if (order! < port.order) {
-                    // yield constrainOffset(point, port.point, ">=", gap, location === 'north' || location === 'south' ? [1, 0] : [0, 1]);
+                    yield constrainOffset(point, port.point, ">=", gap, location === 'north' || location === 'south' ? [1, 0] : [0, 1]);
                 }
             }
         }

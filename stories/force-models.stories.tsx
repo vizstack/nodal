@@ -187,7 +187,7 @@ storiesOf('force models', module)
     .add('spring w/ compound nodes', () => {
         const steps = number('# timesteps', 100, { range: true, min: 0, max: 200, step: 1 });
         const idealLength = number('ideal length', 50);
-        const compactness = number('children compactness', 0.5);
+        const compactness = number('children compactness', 1.0);
         const optimizerType = select('optimizer', ['EnergyOptimizer', 'RMSPropOptimizer', 'BasicOptimizer', 'TrustRegionOptimizer'], 'EnergyOptimizer');
 
         const { nodes, edges } = fromSchema(kGraphCompound.nodes, kGraphCompound.edges);
