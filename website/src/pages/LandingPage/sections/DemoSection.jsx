@@ -39,7 +39,7 @@ import GridContainer from "components/Grid/GridContainer.jsx";
 import GridItem from "components/Grid/GridItem.jsx";
 import { Graph } from "components/Graph.jsx";
 
-import { title, darkGrayColor, primaryColor } from "assets/jss/material-kit-react.jsx";
+import { title, darkGrayColor, primaryColor, infoColor } from "assets/jss/material-kit-react.jsx";
 import tooltipsStyle from "assets/jss/material-kit-react/tooltipsStyle.jsx";
 
 import {
@@ -49,7 +49,7 @@ import {
   kEdgesNoCompound,
   kEdgesCompound,
   kAlignments,
-} from "./demo-data";
+} from "assets/js/demo-data";
 
 SyntaxHighlighter.registerLanguage('typescript', typescript);
 
@@ -142,7 +142,7 @@ class DemoSection extends React.Component {
         constraintsAlignment: true,
         constraintsCircular: false,
         constraintsGrid: false,
-        viewSource: false,
+        viewSource: true,
         layout: null,
     };
     this.state.layout = this._buildLayout();
@@ -157,10 +157,6 @@ class DemoSection extends React.Component {
       }
     }
     return false;
-  }
-
-  componendDidMount() {
-    // this.forceUpdate();
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -205,7 +201,7 @@ class DemoSection extends React.Component {
         iterations: 1,
         // optimizer: new EnergyOptimizer({ lrInitial: 0.3, lrMax: 0.5, lrMin: 0.01, wait: 20, decay: 0.9, growth: 1.1, smoothing: 0.5 }),
         optimizer: new BasicOptimizer(0.5),
-        generator: function* (storage, step, iter) {
+        generator: function* (storage, step) {
           yield* generateSpringForces(
               storage,
               kIdealLength,
@@ -223,7 +219,7 @@ class DemoSection extends React.Component {
       {
         iterations: 5,
         optimizer: new BasicOptimizer(),
-        generator: function* (storage, step, iter) {
+        generator: function* (storage, step) {
           for (let u of storage.nodes()) {
             if(constraintsNonoverlap && nonoverlapScheduler.get(step)) {
                 for(let sibling of storage.siblings(u)) {
@@ -270,10 +266,10 @@ class DemoSection extends React.Component {
 // A 'NodeSchema'/'EdgeSchema' is a lightweight
 // object transforms into a full 'Node'/'Edge'.
 const nodeSchemas: NodeSchema[] = [
-
+  // Your data here.
 ];
 const edgeSchemas: EdgeSchema[] = [
-
+  // Your data here.
 ];`;
 
     let codeString =
@@ -292,27 +288,89 @@ const { nodes, edges } = fromSchema(nodeSchemas, edgeSchemas)
 // A 'Storage' allows easy and efficient lookup, iteration, and
 // traversal over graph elements.
 const storage = new StructuredStorage(nodes, edges);
+const shortestPath = storage.shortestPaths();
+
+// A 'Scheduler' sets a boolean/numeric value over time.
+const orientationScheduler = new BooleanScheduler(true).for(75, false);
+const flowScheduler = new BooleanScheduler(true).for(50, false);
+const nonoverlapScheduler = new BooleanScheduler(true).for(50, false)
+const alignmentScheduler = new BooleanScheduler(true).for(50, false);
 
 // A 'Layout' performs the graph layout procedure on 'start()',
 // e.g. a 'StagedLayout' procedure is broken up into different
 // stages, each repeating some number of iterations.
 const layout = new StagedLayout(
   storage,
-  { steps: 10 },
+  { steps: 200 },
   { // 'Force' stage that nudges elements around.
     iterations: 1,
-    optimizer: new EnergyOptimizer(),
+    optimizer: new BasicOptimizer(0.5),
     fn: function* (storage, step, iter) {
-      const elems = storage as StructuredStorage;
-      // TODO
+      
+      // Spring model attempts to reach ideal distance between
+      // nodes based on shortest path length.
+      yield* generateSpringForces(
+        storage,
+        kIdealLength,
+        shortestPath,
+      );
+      
+      // Snap edge angles to the closest of the given values.
+      if(orientationScheduler.get(step)) {
+        for(let edge of storage.edges()) {
+          yield nudgeAngle(
+            edge.source.node.center,
+            edge.target.node.center,
+            [0, 45, 90, 135, 180, 225, 270, 315],
+            kOrientationStrength,
+          );
+        }
+      }
+
     },
   },
   { // 'Constraint' stage that satisfies constraints.
     iterations: 5,
     optimizer: new BasicOptimizer(),
     fn: function* (storage, step, iter) {
-      const elems = storage as StructuredStorage;
-      // TODO
+
+      // Ensure edges flow in a particular direction.
+      if(flowScheduler.get(step)) {
+        for (let e of storage.edges()) {
+          if (!storage.hasAncestor(e.source.node, e.target.node) &&
+              !storage.hasAncestor(e.target.node, e.source.node)) {
+            yield constrainNodeOffset(
+              e.source.node, e.target.node, ">=", kFlowSeparation,
+              e.meta && e.meta.flow === "east" ? [1, 0] : [0, 1],
+            );
+          }
+        }
+      }
+
+      // Ensure boundaries of nodes do not overlap.
+      if(nonoverlapScheduler.get(step)) {
+        for (let u of storage.nodes()) {
+          for(let sibling of storage.siblings(u)) {
+              yield constrainNodeNonoverlap(u, sibling);
+          }
+        }
+      }
+
+      // Ensure specified nodes are aligned along the given axis.
+      if(alignmentScheduler.get(step)) {
+        for(let { ids, axis } of alignments) {
+          yield* generateNodeAlignmentConstraints(
+            ids.map((id) => storage.node(id)), axis,
+          );
+        }
+      }
+      
+      // Ensure nodes contain their children and that ports are
+      // placed on the correct location of the boundary.
+      for (let u of storage.nodes()) {
+        yield* generateNodeChildrenConstraints(u, kNodePadding);
+        yield* generateNodePortConstraints(u);
+      }
     },
   },
 );
@@ -465,15 +523,12 @@ layout.start();
                 />
           </GridItem>
           <GridItem xs={12} sm={12} md={9} className={classes.graph}>
-            {/* <iframe
-              src="storybook/?path=/story/force-models--spring-w-simple-nodes"
-              style={{ width: '100%', minHeight: '75vh', height: '100%' }} /> */}
               {!this.state.layout ? null : (
                 <Graph
                   key={`${Math.random()}`}
                   layout={this.state.layout}
                   animated={this.state.animated}
-                  nodeColor={(n) => (n.meta && n.meta.group) || 0}
+                  nodeColor={(n) => primaryColor}
                 />
               )}
           </GridItem>
@@ -532,6 +587,9 @@ const styles = {
     paddingBottom: 10,
     overflow: 'auto',
     maxHeight: '75vh',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   button: {
     textAlign: 'center',

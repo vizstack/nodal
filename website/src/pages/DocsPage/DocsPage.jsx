@@ -13,26 +13,26 @@ import Footer from "components/Footer/Footer.jsx";
 import GridContainer from "components/Grid/GridContainer.jsx";
 import GridItem from "components/Grid/GridItem.jsx";
 import HeaderLinks from "components/Header/HeaderLinks.jsx";
-import Parallax from "components/Parallax/Parallax.jsx";
 
 import { container, title } from "assets/jss/material-kit-react.jsx";
 import theme from "assets/jss/theme.jsx";
 
-// Sections for this page
-import PrinciplesSection from "./sections/PrinciplesSection.jsx";
-import DemoSection from "./sections/DemoSection.jsx";
-import TeamSection from "./sections/TeamSection.jsx";
+// Syntax highlighter
+import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
+import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript';
+import prism from 'react-syntax-highlighter/dist/esm/styles/prism/prism';
 
+SyntaxHighlighter.registerLanguage('typescript', typescript);
 
-const dashboardRoutes = ['/', '/examples'];
+const dashboardRoutes = [];
 
-class LandingPage extends React.Component {
+class DocsPage extends React.Component {
   render() {
     const { classes, ...rest } = this.props;
     return (
       <div>
         <Header
-          color="transparent"
+          color="white"
           routes={dashboardRoutes}
           brand="nodal.js"
           rightLinks={<HeaderLinks />}
@@ -43,34 +43,18 @@ class LandingPage extends React.Component {
           }}
           {...rest}
         />
-        <Parallax image={require("assets/img/landing-bg.jpg")}>
-          <div className={classes.container}>
-            <GridContainer>
-              <GridItem xs={12} sm={9} md={6}>
-                <h2 className={classes.title}>
-                  A powerful <br/>
-                  open-source library <br/>
-                  for graph layout.
-                </h2>
-                <h4>
-                  Start building beautiful graphs immediately, <br/>
-                  or configure your own algorithm for any use case.
-                </h4>
-                <br />
-                  <div className={classes.codebox}>
-                    {"npm install nodal"}
-                  </div>
-                  
-              </GridItem>
-            </GridContainer>
-          </div>
-        </Parallax>
-        <div className={classNames(classes.main, classes.mainRaised)}>
+        <div className={classNames(classes.main)}>
           <MuiThemeProvider theme={theme}>
             <div className={classes.container}>
-            <PrinciplesSection />
-            <DemoSection />
-            <TeamSection />
+              <div><h2>Documentation</h2></div>
+              <div><h3>Getting Started</h3></div>
+              Nodal is an open-source library under the MIT License. To get started, install it on npm:
+              <SyntaxHighlighter language="typescript" style={prism}>
+                {'npm install nodal'}
+              </SyntaxHighlighter>
+              <div><h3>Core Concepts</h3></div>
+              {'Under construction! For now, '}
+              <a href="https://github.com/vizstack/blog/blob/master/WEEK-09-08.md#13-designed-highly-modular--extensible-architecture">check out this page on Github!</a>
             </div>
           </MuiThemeProvider>
         </div>
@@ -102,15 +86,18 @@ const styles = {
   main: {
     background: "#FFFFFF",
     position: "relative",
-    zIndex: "3"
+    zIndex: "3",
+    minHeight: '100vh',
+    paddingTop: 80,
+    paddingBottom: 40,
   },
   mainRaised: {
     borderRadius: "6px",
     boxShadow:
       "0 16px 24px 2px rgba(0, 0, 0, 0.14), 0 6px 30px 5px rgba(0, 0, 0, 0.12), 0 8px 10px -5px rgba(0, 0, 0, 0.2)",
-    margin: "-60px 0px 0px",
+    margin: "85px 0px 0px",
     "@media (min-width: 600px)": {
-      margin: "-60px 20px 0px",
+      margin: "85px 20px 0px",
     },
   },
   codebox: {
@@ -122,4 +109,4 @@ const styles = {
   }
 };
 
-export default withStyles(styles)(LandingPage);
+export default withStyles(styles)(DocsPage);

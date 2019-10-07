@@ -9,7 +9,7 @@ export class Graph extends React.Component {
     static defaultProps = {
         animated: false,
         interactive: false,
-        size: [500, 500],
+        size: [100, 100],
     };
     constructor(props) {
         super(props);
