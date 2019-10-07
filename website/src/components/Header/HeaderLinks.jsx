@@ -51,7 +51,7 @@ function HeaderLinks({ ...props }) {
       </ListItem> */}
       <ListItem className={classes.listItem}>
         <Button
-          href="/examples"
+          href="nodal/examples"
           color="transparent"
           className={classes.navLink}
         >
@@ -60,7 +60,7 @@ function HeaderLinks({ ...props }) {
       </ListItem>
       <ListItem className={classes.listItem}>
         <Button
-          href="/docs"
+          href="nodal/docs"
           color="transparent"
           className={classes.navLink}
         >
