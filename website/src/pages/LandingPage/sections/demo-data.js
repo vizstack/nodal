@@ -8,9 +8,9 @@ export const kNodesSimple = [
     ports: {
         'east1': { location: 'east' },
     }},
-    { id: 'n5', shape: { type: 'rectangle', width: kSize, height: kSize }},
-    { id: 'n6', shape: { type: 'rectangle', width: kSize, height: kSize }},
-    { id: 'n7', shape: { type: 'rectangle', width: kSize, height: kSize }},
+    { id: 'n5', shape: { type: 'circle', radius: kSize / 2 }},
+    { id: 'n6', shape: { type: 'circle', radius: kSize / 2 }},
+    { id: 'n7', shape: { type: 'circle', radius: kSize / 2  }},
     { id: 'n8', shape: { type: 'rectangle', width: 2*kSize, height: kSize }},
     { id: 'n9', shape: { type: 'rectangle', width: kSize, height: kSize }},
     { id: 'n10', shape: { type: 'rectangle', width: 2*kSize, height: kSize }},
@@ -18,8 +18,8 @@ export const kNodesSimple = [
     { id: 'n12', shape: { type: 'rectangle', width: 2*kSize, height: kSize },
     ports: {
         'west1': { location: 'west' },
-        'south1': { location: 'south', order: 1 },
-        'south2': { location: 'south', order: 2 },
+        'south1': { location: 'south', order: 2 },
+        'south2': { location: 'south', order: 1 },
         'east1': { location: 'east' },
     }},
     { id: 'n13', shape: { type: 'rectangle', width: kSize, height: kSize }},
@@ -51,7 +51,7 @@ export const kNodesCompound = [
     } },
     { id: 'p2-1', children: ['n16', 'n17'] },
     { id: 'p3', children: ['n18', 'n19', 'n20', 'p3-1'] },
-    { id: 'p3-1', children: ['n21', 'n22'] },
+    { id: 'p3-1', children: ['n21', 'n22'], shape: { type: 'circle', radius: kSize * 2, } },
 ];
 
 export const kEdgesSimple = [
@@ -83,7 +83,7 @@ export const kEdgesSimple = [
 ];
 
 export const kEdgesNoCompound = [
-    { id: 'e4->12', source: { id: 'n4', port: 'east1' }, target: { id: 'n12', port: 'west1' }, meta: { flow: 'east' } },
+    { id: 'e4->12', source: { id: 'n4', port: 'east1' }, target: { id: 'n12', port: 'west1' }, meta: { flow: 'east', length: 1.5 } },
     { id: 'e12->18', source: { id: 'n12', port: 'east1' }, target: { id: 'n18', port: 'west1' }, meta: { flow: 'east' } },
     { id: 'e12->19', source: { id: 'n12', port: 'east1' }, target: { id: 'n19', port: 'west1' }, meta: { flow: 'east' } },
     { id: 'e12->20', source: { id: 'n12', port: 'east1' }, target: { id: 'n20', port: 'west1' }, meta: { flow: 'east' } },
@@ -92,7 +92,7 @@ export const kEdgesNoCompound = [
 
 export const kEdgesCompound = [
     // { id: 'e4->12', source: { id: 'n4', port: 'east1' }, target: { id: 'n12', port: 'west1' }, meta: { flow: 'east' } },
-    { id: 'e4->p2', source: { id: 'n4', port: 'east1' }, target: { id: 'p2', port: 'west1' }, meta: { flow: 'east' } },
+    { id: 'e4->p2', source: { id: 'n4', port: 'east1' }, target: { id: 'p2', port: 'west1' }, meta: { flow: 'east', length: 1.5 } },
     { id: 'ep2->12', source: { id: 'p2', port: 'west1' }, target: { id: 'n12', port: 'west1' }, meta: { flow: 'east' } },
     { id: 'e12->p2', source: { id: 'n12', port: 'east1' }, target: { id: 'p2', port: 'east1' }, meta: { flow: 'east' } },
     { id: 'ep2->18', source: { id: 'p2', port: 'east1' }, target: { id: 'n18', port: 'west1' }, meta: { flow: 'east' } },
@@ -100,3 +100,5 @@ export const kEdgesCompound = [
     { id: 'ep2->20', source: { id: 'p2', port: 'east1' }, target: { id: 'n20', port: 'west1' }, meta: { flow: 'east' } },
     { id: 'e15->p2-1', source: { id: 'n15' }, target: { id: 'p2-1' } },
 ];
+
+export const kAlignments = [{ ids: ['n4', 'n12', 'n19', 'n21'], axis: [1, 0] }];

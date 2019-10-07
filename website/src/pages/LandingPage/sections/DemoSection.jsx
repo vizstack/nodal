@@ -28,9 +28,11 @@ import {
   generateSpringForces,
   generateCompactnessForces,
   generateNodeChildrenConstraints,
+  generateNodeAlignmentConstraints,
   constrainNodeOffset,
   generateNodePortConstraints,
   constrainNodeNonoverlap,
+  nudgeAngle,
 } from 'nodal';
 
 import GridContainer from "components/Grid/GridContainer.jsx";
@@ -46,6 +48,7 @@ import {
   kEdgesSimple,
   kEdgesNoCompound,
   kEdgesCompound,
+  kAlignments,
 } from "./demo-data";
 
 SyntaxHighlighter.registerLanguage('typescript', typescript);
@@ -119,29 +122,30 @@ const RadioOption = withStyles({
 const kIdealLength = 20;
 const kFlowSeparation = 30;
 const kCompactness = 0;
+const kNodePadding = 0;
 
 class DemoSection extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
         animated: false,
-        nodeChildren: false,
-        nodeShape: false,
-        nodePorts: false,
-        edgeOrientation: false,
+        nodeChildren: true,
+        nodeShape: true,
+        nodePorts: true,
+        edgeOrientation: true,
         edgeVariableLength: false,
         edgeRouting: false,
         edgeRoutingShape: 'linear',  // 'linear' | 'curved' | 'octilinear
-        constraintsFlow: false,
-        constraintsFlowDirection: 'single', // 'single' | 'multiple'
-        constraintsNonoverlap: false,
-        constraintsAlignment: false,
+        constraintsFlow: true,
+        constraintsFlowDirection: 'multiple', // 'single' | 'multiple'
+        constraintsNonoverlap: true,
+        constraintsAlignment: true,
         constraintsCircular: false,
         constraintsGrid: false,
         viewSource: false,
         layout: null,
     };
-    this._buildLayout();
+    this.state.layout = this._buildLayout();
   }
 
   static _watchedState = ['animated', 'nodeChildren', 'nodeShape', 'nodePorts', 'edgeOrientation', 'edgeVariableLength', 'edgeRouting', 'constraintsFlow', 'constraintsFlowDirection', 'constraintsNonoverlap', 'constraintsAlignment', 'constraintsCircular', 'constraintsGrid'];
@@ -156,12 +160,12 @@ class DemoSection extends React.Component {
   }
 
   componendDidMount() {
-    this.forceUpdate();
+    // this.forceUpdate();
   }
 
   componentDidUpdate(prevProps, prevState) {
     if(this._watchedStateChanged(prevState)) {
-      this._buildLayout();
+      this.setState({ layout: this._buildLayout() });
     }
   }
 
@@ -186,11 +190,14 @@ class DemoSection extends React.Component {
     const { nodes, edges } = fromSchema(nodeSchemas, edgeSchemas);
     const storage = new StructuredStorage(nodes, edges);
     const shortestPath = storage.shortestPaths();
+    const alignments = kAlignments;
 
     // Enable constraints depending on configuration.
     const { edgeOrientation, edgeVariableLength, edgeRouting, constraintsFlow, constraintsFlowDirection, constraintsNonoverlap, constraintsAlignment, constraintsCircular, constraintsGrid } = this.state;
     const nonoverlapScheduler = new BooleanScheduler(true).for(50, false)
-    const constraintScheduler = new BooleanScheduler(true).for(50, false);
+    const flowScheduler = new BooleanScheduler(true).for(50, false);
+    const alignmentScheduler = new BooleanScheduler(true).for(50, false);
+    const orientationScheduler = new BooleanScheduler(true).for(75, false);
     const layout = new StagedLayout(
       storage,
       { steps: 200 },
@@ -205,6 +212,12 @@ class DemoSection extends React.Component {
               shortestPath,
           );
           yield* generateCompactnessForces(storage, kCompactness);
+          
+          if(edgeOrientation && orientationScheduler.get(step)) {
+              for(let edge of storage.edges()) {
+                yield nudgeAngle(edge.source.node.center, edge.target.node.center, [0, 45, 90, 135, 180, 225, 270, 315], 100);
+              }
+          }
         },
       },
       {
@@ -217,7 +230,7 @@ class DemoSection extends React.Component {
                     yield constrainNodeNonoverlap(u, sibling);
                 }
             }
-            if(constraintsFlow && constraintScheduler.get(step)) {
+            if(constraintsFlow && flowScheduler.get(step)) {
               if(constraintsFlowDirection === 'single') {
                 for (let e of storage.edges()) {
                   if (!storage.hasAncestor(e.source.node, e.target.node) && !storage.hasAncestor(e.target.node, e.source.node)) {
@@ -232,14 +245,20 @@ class DemoSection extends React.Component {
                 }
               }
             }
-            yield* generateNodeChildrenConstraints(u);
+            if(constraintsAlignment && alignmentScheduler.get(step)) {
+              for(let { ids, axis } of alignments) {
+                yield* generateNodeAlignmentConstraints(ids.map((id) => storage.node(id)), axis);
+              }
+            }
+            
+            yield* generateNodeChildrenConstraints(u, kNodePadding);
             yield* generateNodePortConstraints(u);
         }
         },
       }
     );
 
-    this.setState({ layout });
+    return layout;
   }
 
   render() {
@@ -315,13 +334,6 @@ layout.start();
         </GridContainer>
         <GridContainer className={classes.demo} justify="center">
           <GridItem xs={12} sm={6} md={3}>
-              <div><h6>Demo Options</h6></div>
-              <SwitchOption
-                checked={this.state.animated}
-                onChange={(e) => this.setState({ animated: e.target.checked })}
-                label="Animated layout"
-                tooltip="Show an animation of all layout iterations, rather than just the final result."
-                />
                 
               <div><h6>Nodes</h6></div>
               <SwitchOption
@@ -347,16 +359,16 @@ layout.start();
               <SwitchOption
                 checked={this.state.edgeOrientation}
                 onChange={(e) => this.setState({ edgeOrientation: e.target.checked })}
-                label="Preferred orientation"
+                label="Angle snap"
                 tooltip="Enable forces that try to orient edges at specified angles. Demo: 0, 45, 90."
                 />
-              <SwitchOption
+              {/* <SwitchOption
                 checked={this.state.edgeVariableLength}
                 onChange={(e) => this.setState({ edgeVariableLength: e.target.checked })}
                 label="Variable length"
                 tooltip="Enable different preferred lengths for edges. Demo: Jaccard scaling."
-                />
-              <SwitchOption
+                /> */}
+              {/* <SwitchOption
                 checked={this.state.edgeRouting}
                 onChange={(e) => this.setState({ edgeRouting: e.target.checked })}
                 label="Orthogonal routing"
@@ -390,7 +402,7 @@ layout.start();
                         value="octilinear"
                         />
                   </GridItem>
-                 </GridContainer>
+                 </GridContainer> */}
               
               <div><h6>Constraints</h6></div>
               <SwitchOption
@@ -399,7 +411,7 @@ layout.start();
                 label="Flow direction"
                 tooltip="Enable constraints to make edges flow in a particular direction. Different parts of the graph may flow in different directions."
                 />
-                <GridContainer className={classes.suboptions}>
+                {/* <GridContainer className={classes.suboptions}>
                   <GridItem xs={4}>
                   <RadioOption
                     disabled={!this.state.constraintsFlow}
@@ -409,17 +421,16 @@ layout.start();
                     value="single"
                     />
                   </GridItem>
-                <GridItem xs={4}>
-                <RadioOption
-                    disabled={!this.state.constraintsFlow}
-                    checked={this.state.constraintsFlowDirection === "multiple"}
-                    onChange={(e) => this.setState({ constraintsFlowDirection: "multiple"  })}
-                    label="Multiple"
-                    value="multiple"
-                    />
-                </GridItem>
-                
-                </GridContainer>
+                  <GridItem xs={4}>
+                  <RadioOption
+                      disabled={!this.state.constraintsFlow}
+                      checked={this.state.constraintsFlowDirection === "multiple"}
+                      onChange={(e) => this.setState({ constraintsFlowDirection: "multiple"  })}
+                      label="Multiple"
+                      value="multiple"
+                      />
+                  </GridItem>
+                </GridContainer> */}
               <SwitchOption
                 checked={this.state.constraintsNonoverlap}
                 onChange={(e) => this.setState({ constraintsNonoverlap: e.target.checked })}
@@ -432,17 +443,25 @@ layout.start();
                 label="Alignment"
                 tooltip="Enable constraints that align certain nodes with each other along specified directions. Demo: align by centers along 0 and 90."
                 />
-              <SwitchOption
+              {/* <SwitchOption
                 checked={this.state.constraintsGrid}
                 onChange={(e) => this.setState({ constraintsGrid: e.target.checked })}
                 label="Grid snap"
                 tooltip="Enable constraints that snap node positions to a grid."
-                />
-              <SwitchOption
+                /> */}
+              {/* <SwitchOption
                 checked={this.state.constraintsCircular}
                 onChange={(e) => this.setState({ constraintsCircular: e.target.checked })}
                 label="Circular cycles"
                 tooltip="Enable constraints that highlight cycles of nodes by arranging them in a circular structure."
+                /> */}
+              
+              <div><h6>Demo Options</h6></div>
+              <SwitchOption
+                checked={this.state.animated}
+                onChange={(e) => this.setState({ animated: e.target.checked })}
+                label="Animated layout"
+                tooltip="Show an animation of all layout iterations, rather than just the final result."
                 />
           </GridItem>
           <GridItem xs={12} sm={12} md={9} className={classes.graph}>

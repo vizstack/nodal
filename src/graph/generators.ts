@@ -33,8 +33,8 @@ export function* generateSpringForces(
 
             const uvPath = shortestPath(u, v);
             if(uvPath === undefined) continue; // Ignore disconnected components.
-            if(typeof idealLength === "function") idealLength = idealLength(u, v);
-            const idealDistance = idealLength * uvPath;
+            let idealDistance = (typeof idealLength === "function") ? uvPath * idealLength(u, v) : uvPath * idealLength;
+            
             const axis = (new Vector()).subVectors(v.center, u.center);
             const actualDistance = axis.length() > 0 ? u.shape.boundary(axis).distanceTo(v.shape.boundary(axis.negate())) : 0;
             
@@ -150,6 +150,6 @@ export function* generateNodeChildrenConstraints(
     yield grads;
 
     if (u.children.length > 0) {
-        yield (u.shape as any).constrainShapeCompact(u.children.map((child) => child.shape), 0);
+        yield (u.shape as any).constrainShapeCompact(u.children.map((child) => child.shape), -padding);
     }
 }
