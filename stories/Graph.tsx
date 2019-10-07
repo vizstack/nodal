@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Node, Edge, Storage, StagedLayout, NodeId } from '../src/graph';
+import { Node, Edge, Storage, StagedLayout } from '../src/graph';
 import { Vector } from '../src/optim';
 
 type GraphProps = {

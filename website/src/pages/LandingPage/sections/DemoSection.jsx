@@ -23,15 +23,30 @@ import {
   StagedLayout,
   BasicOptimizer,
   EnergyOptimizer,
+  BooleanScheduler,
   fromSchema,
-
+  generateSpringForces,
+  generateCompactnessForces,
+  generateNodeChildrenConstraints,
+  constrainNodeOffset,
+  generateNodePortConstraints,
+  constrainNodeNonoverlap,
 } from 'nodal';
 
 import GridContainer from "components/Grid/GridContainer.jsx";
 import GridItem from "components/Grid/GridItem.jsx";
+import { Graph } from "components/Graph.jsx";
 
 import { title, darkGrayColor, primaryColor } from "assets/jss/material-kit-react.jsx";
 import tooltipsStyle from "assets/jss/material-kit-react/tooltipsStyle.jsx";
+
+import {
+  kNodesSimple,
+  kNodesCompound,
+  kEdgesSimple,
+  kEdgesNoCompound,
+  kEdgesCompound,
+} from "./demo-data";
 
 SyntaxHighlighter.registerLanguage('typescript', typescript);
 
@@ -101,6 +116,9 @@ const RadioOption = withStyles({
     }
 })(_RadioOption);
 
+const kIdealLength = 20;
+const kFlowSeparation = 30;
+const kCompactness = 0;
 
 class DemoSection extends React.Component {
   constructor(props) {
@@ -121,8 +139,9 @@ class DemoSection extends React.Component {
         constraintsCircular: false,
         constraintsGrid: false,
         viewSource: false,
-        storage: new StructuredStorage([], []),
+        layout: null,
     };
+    this._buildLayout();
   }
 
   static _watchedState = ['animated', 'nodeChildren', 'nodeShape', 'nodePorts', 'edgeOrientation', 'edgeVariableLength', 'edgeRouting', 'constraintsFlow', 'constraintsFlowDirection', 'constraintsNonoverlap', 'constraintsAlignment', 'constraintsCircular', 'constraintsGrid'];
@@ -137,7 +156,7 @@ class DemoSection extends React.Component {
   }
 
   componendDidMount() {
-    this._buildLayout();
+    this.forceUpdate();
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -149,30 +168,78 @@ class DemoSection extends React.Component {
   _buildLayout() {
     // Change dataset depending on configuration.
     const { nodeChildren, nodeShape, nodePorts } = this.state;
-    const nodeSchemas = [], edgeSchemas = [];
-    const { nodes, edges } = fromSchema(nodeSchemas, nodeSchemas);
+    let nodeSchemas = [
+      ...kNodesSimple,
+      ...(nodeChildren ? kNodesCompound : []),
+    ].map((node) => ({
+      ...node,
+      ...(nodePorts ? {} : { ports: undefined }),
+    }));
+    let edgeSchemas = [
+      ...kEdgesSimple,
+      ...(nodeChildren ? kEdgesCompound : kEdgesNoCompound)
+    ].map((edge) => ({
+      ...edge,
+      source: nodePorts ? edge.source : { id: edge.source.id },
+      target: nodePorts ? edge.target : { id: edge.target.id },
+    }));
+    const { nodes, edges } = fromSchema(nodeSchemas, edgeSchemas);
     const storage = new StructuredStorage(nodes, edges);
+    const shortestPath = storage.shortestPaths();
 
     // Enable constraints depending on configuration.
     const { edgeOrientation, edgeVariableLength, edgeRouting, constraintsFlow, constraintsFlowDirection, constraintsNonoverlap, constraintsAlignment, constraintsCircular, constraintsGrid } = this.state;
+    const nonoverlapScheduler = new BooleanScheduler(true).for(50, false)
+    const constraintScheduler = new BooleanScheduler(true).for(50, false);
     const layout = new StagedLayout(
       storage,
-      { steps: 10 },
+      { steps: 200 },
       {
         iterations: 1,
-        optimizer: new EnergyOptimizer(),
-        fn: function* (storage, step, iter) {
-          // TODO
+        // optimizer: new EnergyOptimizer({ lrInitial: 0.3, lrMax: 0.5, lrMin: 0.01, wait: 20, decay: 0.9, growth: 1.1, smoothing: 0.5 }),
+        optimizer: new BasicOptimizer(0.5),
+        generator: function* (storage, step, iter) {
+          yield* generateSpringForces(
+              storage,
+              kIdealLength,
+              shortestPath,
+          );
+          yield* generateCompactnessForces(storage, kCompactness);
         },
       },
       {
-        iterations: 10,
+        iterations: 5,
         optimizer: new BasicOptimizer(),
-        fn: function* (storage, step, iter) {
-          // TODO
+        generator: function* (storage, step, iter) {
+          for (let u of storage.nodes()) {
+            if(constraintsNonoverlap && nonoverlapScheduler.get(step)) {
+                for(let sibling of storage.siblings(u)) {
+                    yield constrainNodeNonoverlap(u, sibling);
+                }
+            }
+            if(constraintsFlow && constraintScheduler.get(step)) {
+              if(constraintsFlowDirection === 'single') {
+                for (let e of storage.edges()) {
+                  if (!storage.hasAncestor(e.source.node, e.target.node) && !storage.hasAncestor(e.target.node, e.source.node)) {
+                    yield constrainNodeOffset(e.source.node, e.target.node, ">=", kFlowSeparation, [0, 1], { masses: [e.source.node.fixed ? 1e9 : 1, e.target.node.fixed ? 1e9 : 1] });
+                  }
+                }
+              } else if (constraintsFlowDirection === 'multiple') {
+                for (let e of storage.edges()) {
+                  if (!storage.hasAncestor(e.source.node, e.target.node) && !storage.hasAncestor(e.target.node, e.source.node)) {
+                    yield constrainNodeOffset(e.source.node, e.target.node, ">=", kFlowSeparation, e.meta && e.meta.flow === "east" ? [1, 0] : [0, 1], { masses: [e.source.node.fixed ? 1e9 : 1, e.target.node.fixed ? 1e9 : 1] });
+                  }
+                }
+              }
+            }
+            yield* generateNodeChildrenConstraints(u);
+            yield* generateNodePortConstraints(u);
+        }
         },
       }
-    )
+    );
+
+    this.setState({ layout });
   }
 
   render() {
@@ -379,9 +446,17 @@ layout.start();
                 />
           </GridItem>
           <GridItem xs={12} sm={12} md={9} className={classes.graph}>
-            <iframe
+            {/* <iframe
               src="storybook/?path=/story/force-models--spring-w-simple-nodes"
-              style={{ width: '100%', minHeight: '75vh', height: '100%' }} />
+              style={{ width: '100%', minHeight: '75vh', height: '100%' }} /> */}
+              {!this.state.layout ? null : (
+                <Graph
+                  key={`${Math.random()}`}
+                  layout={this.state.layout}
+                  animated={this.state.animated}
+                  nodeColor={(n) => (n.meta && n.meta.group) || 0}
+                />
+              )}
           </GridItem>
           <GridItem xs={12} className={classes.button}>
             <Button size="sm" onClick={() => this.setState((s) => ({ viewSource: !s.viewSource }))}>
@@ -436,6 +511,8 @@ const styles = {
   graph: {
     paddingTop: 10,
     paddingBottom: 10,
+    overflow: 'auto',
+    maxHeight: '75vh',
   },
   button: {
     textAlign: 'center',

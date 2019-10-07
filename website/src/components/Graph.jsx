@@ -1,86 +1,55 @@
 import * as React from 'react';
-import { Node, Edge, Storage, ForceConstraintLayout } from 'nodal';
+import { Node, Edge, Storage, StagedLayout } from 'nodal';
 
-type GraphProps = {
-    storage: Storage;
-    layout: ForceConstraintLayout;
-
-    /** Whether to run animation during layout process. */
-    animated?: boolean;
-
-    /** Whether to allow mouse interaction.  */
-    interactive?: boolean;
-
-    /** Function to specify color, as a string or an index into the default color palette. */
-    nodeColor?: (n: Node) => string | number,
-    edgeColor?: (e: Edge) => string | number,
-
-    /** Minimum graph size. */
-    size?: [number, number];
-};
-
-type GraphState = {
-    nodes: Iterable<Node>;
-    edges: Iterable<Edge>;
-    bounds: ReturnType<Storage['bounds']>;
-    drag?: {
-        node: Node,
-        origin: { x: number, y: number },
-        center: { x: number, y: number },
-        fixed: boolean,
-        bounds: ReturnType<Storage['bounds']>;
-    };
-};
-
-const kPortRadius = 2;
+const kPortRadius = 3;
 const kAnimationTick = 0;
 const kLayoutSteps = 250;
 
-export class Graph extends React.Component<GraphProps, GraphState> {
-    static defaultProps: Partial<GraphProps> = {
+export class Graph extends React.Component {
+    static defaultProps = {
         animated: false,
         interactive: false,
         size: [500, 500],
     };
-    constructor(props: GraphProps) {
+    constructor(props) {
         super(props);
-        const { layout, storage, animated} = this.props;
+        const { layout, animated} = this.props;
         this.state = {
-            nodes: storage.nodes(),
-            edges: storage.edges(),
-            bounds: storage.bounds(),
+            nodes: layout.storage.nodes(),
+            edges: layout.storage.edges(),
+            bounds: layout.storage.bounds(),
             drag: undefined,
         };
         if(animated) {
             // Animated graphs should repeatedly stop after after every step in order to give React
             // time to rerender. This will continue until all iterations are done.
-            layout.onStep((elems) => {
+            layout.onStep = (storage) => {
                 this.setState({
-                    nodes: elems.nodes(),
-                    edges: elems.edges(),
-                    bounds: elems.bounds(),
+                    nodes: storage.nodes(),
+                    edges: storage.edges(),
+                    bounds: storage.bounds(),
                 });
                 setTimeout(() => layout.start(), kAnimationTick);
                 return false;
-            });
+            };
         } else {
             // Unanimated graphs should only update state after the initial layout ends, and on
             // every step afterwards, when the user manipulates the graph.
-            layout.onEnd((elems) => {
+            layout.onEnd = (storage) => {
                 this.setState({
-                    nodes: elems.nodes(),
-                    edges: elems.edges(),
-                    bounds: elems.bounds(),
+                    nodes: storage.nodes(),
+                    edges: storage.edges(),
+                    bounds: storage.bounds(),
                 });
-                layout.onStep((elems) => {
+                layout.onStep = (storage) => {
                     this.setState({
-                        nodes: elems.nodes(),
-                        edges: elems.edges(),
-                        bounds: elems.bounds(),
+                        nodes: storage.nodes(),
+                        edges: storage.edges(),
+                        bounds: storage.bounds(),
                     });
                     return true;
-                });
-            });
+                };
+            };
         }
     }
     componentDidMount() {
@@ -88,7 +57,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         setTimeout(() => layout.start(), 0);
     }
 
-    onMouseDown = (node: Node, x: number, y: number) => {
+    onMouseDown = (node, x, y) => {
         if(!this.props.interactive) return;
         if(this.state.drag !== undefined) this.onMouseUp();
         const fixed = node.fixed;
@@ -106,19 +75,19 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     onMouseUp = () => {
         if(!this.props.interactive) return;
         if(this.state.drag !== undefined) {
-            const { storage } = this.props;
+            const { layout } = this.props;
             const { node, fixed } = this.state.drag;
             node.fixed = fixed;
             this.setState({ drag: undefined });
             this.setState({
-                nodes: storage.nodes(),
-                edges: storage.edges(),
-                bounds: storage.bounds(),
+                nodes: layout.storage.nodes(),
+                edges: layout.storage.edges(),
+                bounds: layout.storage.bounds(),
             });
         }
     }
 
-    onMouseMove = (x: number, y: number) => {
+    onMouseMove = (x, y) => {
         if(!this.props.interactive) return;
         if(this.state.drag !== undefined) {
             const { node, origin, center } = this.state.drag;
@@ -127,7 +96,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         }
     }
 
-    doLayout(steps: number) {
+    doLayout(steps) {
         if(steps <= 0) return;
         setTimeout(() => {
             this.props.layout.step();
@@ -145,13 +114,13 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         const bounds = drag ? drag.bounds : this.state.bounds;
         const { size = [0, 0] } = this.props;
 
-        const nodeColor = (n: Node) => {
+        const nodeColor = (n) => {
             if(!this.props.nodeColor) return Palette[0];  // Blue
             const value = this.props.nodeColor(n);
             return typeof value === 'number' ? Palette[value % Palette.length] : value;
         }
 
-        const edgeColor = (e: Edge) => {
+        const edgeColor = (e) => {
             if(!this.props.edgeColor) return Palette[13];  // Gray
             const value = this.props.edgeColor(e);
             return typeof value === 'number' ? Palette[value % Palette.length] : value;
