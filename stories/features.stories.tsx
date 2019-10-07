@@ -113,6 +113,15 @@ storiesOf('features', module)
         );
         return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
+    .add('simple nodes (shapes)', () => {
+        const idealLength = number('ideal length', 30);
+        const layout = makeLayout(
+            kGraphFive.nodesShapes,
+            kGraphFive.edgesAcyclic,
+            { idealLength },
+        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
+    })
     .add('disconnected components', () => {
         const idealLength = number('ideal length', 30);
         const layout = makeLayout(
@@ -127,6 +136,16 @@ storiesOf('features', module)
         const compactness = number('group compactness', 0.5);
         const layout = makeLayout(
             kGraphFive.nodesNested,
+            kGraphFive.edgesAcyclic,
+            { idealLength, compactness },
+        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
+    })
+    .add('compound nodes (shapes)', () => {
+        const idealLength = number('ideal length', 30);
+        const compactness = number('group compactness', 0.5);
+        const layout = makeLayout(
+            kGraphFive.nodesNestedShapes,
             kGraphFive.edgesAcyclic,
             { idealLength, compactness },
         );

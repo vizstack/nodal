@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Node, Edge, Storage, StagedLayout, NodeId } from '../src/graph';
+import { node } from 'prop-types';
 
 type GraphProps = {
     layout: StagedLayout;
@@ -159,20 +160,44 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         const compoundNodeComponents = [];
         for(let node of nodes) {
             if(node.children.length > 0) {
-                const { x, y, width, height } = node.shape.bounds();
+                const shapeSchema = node.shape.toSchema();
+                let shape;
+                switch(shapeSchema.type) {
+                    case 'rectangle':
+                        const { width, height } = shapeSchema;
+                        shape = (
+                            <rect
+                                x={node.shape.bounds().x}
+                                y={node.shape.bounds().y}
+                                width={width}
+                                height={height}
+                                fill={nodeColor(node)}
+                                stroke={Color.white}
+                                strokeWidth={1.5}
+                                rx={4}
+                                opacity={0.3}
+                            />
+                        )
+                        break;
+                    case 'circle':
+                        const { radius } = shapeSchema;
+                        shape = (
+                            <circle 
+                                cx={node.shape.center.x}
+                                cy={node.shape.center.y}
+                                r={radius}
+                                fill={nodeColor(node)}
+                                stroke={Color.white}
+                                strokeWidth={1.5}
+                                rx={4}
+                                opacity={0.3}
+                            />
+                        )
+                        break;
+                }
                 compoundNodeComponents.push(
                     <g key={node.id} id={node.id}>
-                        <rect
-                            x={x}
-                            y={y}
-                            width={width}
-                            height={height}
-                            fill={nodeColor(node)}
-                            stroke={Color.white}
-                            strokeWidth={1.5}
-                            rx={4}
-                            opacity={0.3}
-                        />
+                        {shape}
                         <text x={node.center.x} y={node.center.y} textAnchor="middle" dominantBaseline="middle"
                             style={{
                                 fontFamily: '"Helvetica Neue", sans-serif',
@@ -205,20 +230,43 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         const simpleNodeComponents = [];
         for(let node of nodes) {
             if(node.children.length == 0) {
-                const { x, y, width, height } = node.shape.bounds();
+                const shapeSchema = node.shape.toSchema();
+                let shape;
+                switch(shapeSchema.type) {
+                    case 'rectangle':
+                        const { width, height } = shapeSchema;
+                        shape = (
+                            <rect
+                                x={node.shape.bounds().x}
+                                y={node.shape.bounds().y}
+                                width={width}
+                                height={height}
+                                fill={nodeColor(node)}
+                                stroke={Color.white}
+                                strokeWidth={1}
+                                rx={4}
+                                onMouseDown={(e) => this.onMouseDown(node, e.clientX, e.clientY)}
+                            />
+                        )
+                        break;
+                    case 'circle':
+                        const { radius } = shapeSchema;
+                        shape = (
+                            <circle 
+                                cx={node.shape.center.x}
+                                cy={node.shape.center.y}
+                                r={radius}
+                                fill={nodeColor(node)}
+                                stroke={Color.white}
+                                strokeWidth={1}
+                                onMouseDown={(e) => this.onMouseDown(node, e.clientX, e.clientY)}
+                            />
+                        )
+                        break;
+                }
                 simpleNodeComponents.push(
                     <g key={node.id} id={node.id}>
-                        <rect
-                            x={x}
-                            y={y}
-                            width={width}
-                            height={height}
-                            fill={nodeColor(node)}
-                            stroke={Color.white}
-                            strokeWidth={1}
-                            rx={4}
-                            onMouseDown={(e) => this.onMouseDown(node, e.clientX, e.clientY)}
-                        />
+                        {shape}
                         <text x={node.center.x} y={node.center.y} textAnchor="middle" dominantBaseline="middle"
                             style={{
                                 fontFamily: '"Helvetica Neue", sans-serif',
