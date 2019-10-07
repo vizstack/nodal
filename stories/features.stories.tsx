@@ -18,8 +18,8 @@ import {
     nudgePair,
     nudgePoint,
     generateNodeChildrenConstraints,
-    constrainNodePorts,
-    constrainNodeAlignment,
+    generateNodePortConstraints,
+    generateNodeAlignmentConstraints,
     constrainNodeGrid,
     constrainNodeDistance,
     constrainNodeOffset,
@@ -86,7 +86,7 @@ function makeLayout(
             generator: function* (storage, step, iter) {
                 for (let u of storage.nodes()) {
                     yield* generateNodeChildrenConstraints(u);
-                    yield constrainNodePorts(u);
+                    yield* generateNodePortConstraints(u);
                 }
                 if(extraConstraints) yield* extraConstraints(storage, step, iter);
             }
@@ -249,14 +249,13 @@ storiesOf('features', module)
             kGraphFive.edgesTree,
             { idealLength,
               extraConstraints: function* (storage) {
-                function align(u: NodeId, v: NodeId, axis: [number, number]) {
-                    return constrainNodeAlignment([storage.node(u), storage.node(v)], axis);
+                function* align(nodes: NodeId[], axis: [number, number]) {
+                    yield* generateNodeAlignmentConstraints(nodes.map((n) => storage.node(n)), axis);
                 }
 
-                yield align('n0', 'n1', [1, 0]);
-                yield align('n1', 'n2', [0, 1]);
-                yield align('n2', 'n3', [1, 0]);
-                yield align('n2', 'n4', [0, 1]);
+                yield* align(['n0', 'n1'], [1, 0]);
+                yield* align(['n1', 'n2', 'n4'], [0, 1]);
+                yield* align(['n2', 'n3'], [1, 0]);
               }
             },
         );

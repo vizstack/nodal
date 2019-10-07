@@ -219,12 +219,11 @@ const kPortMasses: [number, number] = [1e6, 1];
  * @param gap
  *     Minimum distance between successive ports at a location. (default: 8)
  */
-export function constrainNodePorts(
+export function* generateNodePortConstraints(
     u: Node,
     centering: number = 0.5,
     gap: number = 8,
-): Gradient[] {
-    const grads: Gradient[][] = [];
+) {
     const ports: Port[] = Object.values(u.ports);
 
     // Aggregate all ports at the same specified location.
@@ -239,10 +238,10 @@ export function constrainNodePorts(
 
     const { x: cx, y: cy } = u.center;
     const { width, height, x, y, X, Y } = u.shape.bounds();
-    ports.forEach(({ location, order, point }) => {
+    for (let {location, order, point} of ports) {
         if (location === 'center') {
-            grads.push(constrainDistance(u.center, point, "=", 0, { masses: kPortMasses }));
-            return;
+            yield constrainDistance(u.center, point, "=", 0, { masses: kPortMasses });
+            continue;
         }
 
         let side: 'north' | 'south' | 'east' | 'west';
@@ -261,33 +260,31 @@ export function constrainNodePorts(
         }
 
         // Constrain port to `Shape` boundary.
-        grads.push(u.shape.constrainPointOnBoundary(point, { masses: { shape: 100000, point: 1 }, offset: 0 }));  // TODO: Add masses.
+        yield u.shape.constrainPointOnBoundary(point, { masses: { shape: 1000, point: 1 }, offset: 0 });  // TODO: Add masses.
 
         // Attract ports on boundary towards side center.
         switch (side) {
             case 'north':
                 // Scale the boundary coordinates by a close-to-1 constant so that the ports do not exactly
                 // align with them and cause jitter
-                grads.push(nudgePair(new Vector(cx, y * 0.9), point, [0, -centering]));
+                yield nudgePair(new Vector(cx, y * 0.9), point, [0, -centering]);
                 break;
             case 'south':
-                grads.push(nudgePair(new Vector(cx, Y * 0.9), point, [0, -centering]));
+                yield nudgePair(new Vector(cx, Y * 0.9), point, [0, -centering]);
                 break;
             case 'west':
-                grads.push(nudgePair(new Vector(x * 0.9, cy), point, [0, -centering]));
+                yield nudgePair(new Vector(x * 0.9, cy), point, [0, -centering]);
                 break;
             case 'east':
-                grads.push(nudgePair(new Vector(X * 0.9, cy), point, [0, -centering]));
+                yield nudgePair(new Vector(X * 0.9, cy), point, [0, -centering]);
                 break;
         }
 
         // Maintain separation gap between ports.
         // TODO: Make into a scheduled value.
-        ports.filter(({ location }) => location !== 'center').forEach(({ point: p }) => {
-            if (p !== point) {
-                grads.push(constrainDistance(point, p, '>=', gap))
-            }
-        });
+        for (let {point : p}  of ports.filter(({ location, point: p }) => location !== 'center' && p !== point)) {
+            yield constrainDistance(point, p, '>=', gap)
+        };
 
         // Only location zones and ordering for more specific sides.
         if (location === 'boundary') return;
@@ -303,24 +300,18 @@ export function constrainNodePorts(
         // normal = west.
         const risingNormalOp = location === 'north' || location === 'west' ? '>=' : '<=';
         const fallingNormalOp = location === 'north' || location === 'east' ? '>=' : '<=';
-        grads.push(
-            constrainOffset(u.center, point, risingNormalOp, 0, [-height, -width], { masses: kPortMasses }),
-            constrainOffset(u.center, point, fallingNormalOp, 0, [height, -width], { masses: kPortMasses }),
-        );
+        yield constrainOffset(u.center, point, risingNormalOp, 0, [-height, -width], { masses: kPortMasses });
+        yield constrainOffset(u.center, point, fallingNormalOp, 0, [height, -width], { masses: kPortMasses });
 
         // Constrain order for ordered ports at the same side.
-        if (order) {
-            orders[location].forEach((port) => {
-                if (order < port.order) {
-                    grads.push(
-                        constrainOffset(point, port.point, ">=", gap, location === 'north' || location === 'south' ? [1, 0] : [0, 1])
-                    );
+        if (order !== undefined) {
+            for (let port of orders[location]) {
+                if (order! < port.order) {
+                    // yield constrainOffset(point, port.point, ">=", gap, location === 'north' || location === 'south' ? [1, 0] : [0, 1]);
                 }
-            })
+            }
         }
-    });
-
-    return grads.flat();
+    };
 }
 
 /**
@@ -372,14 +363,14 @@ export function constrainNodeNonoverlap(
  * @param nodes
  * @param axis
  */
-export function constrainNodeAlignment(
+export function* generateNodeAlignmentConstraints(
     nodes: Node[],
     axis: [number, number],
     align: 'north' | 'south' | 'east' | 'west' | 'center' = 'center',
-): Gradient[] {
+) {
     // TODO: Integrate align.
     const [x, y] = axis;
-    if (nodes.length < 2) return [];
+    if (nodes.length < 2) return;
     const grads: Gradient[][] = [];
     for (let i = 0; i < nodes.length - 1; i++) {
         // TODO: Integrate fixed.
@@ -406,9 +397,8 @@ export function constrainNodeAlignment(
                 break;
         }
         const newGrads = constrainDistance(p, q, '=', 0, { axis: [-y, x] });
-        grads.push(newGrads.map((grad) => new Gradient(grad.point === p ? u.center : v.center, grad.grad)));
+        yield newGrads.map((grad) => new Gradient(grad.point === p ? u.center : v.center, grad.grad));
     }
-    return grads.flat();
 }
 
 /**

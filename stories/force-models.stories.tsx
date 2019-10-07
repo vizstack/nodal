@@ -10,7 +10,7 @@ import {
     fromSchema,
     nudgePair,
     generateNodeChildrenConstraints,
-    constrainNodePorts,
+    generateNodePortConstraints,
     constrainNodeNonoverlap,
     constrainOffset,
     Optimizer,
@@ -62,7 +62,7 @@ storiesOf('force models', module)
                 optimizer: constraintOptimizer,
                 generator: function* (storage) {
                     for (let u of storage.nodes()) {
-                        yield constrainNodePorts(u);
+                        yield* generateNodePortConstraints(u);
                     }
                 }
             }
@@ -111,7 +111,7 @@ storiesOf('force models', module)
                 generator: function* (storage, step) {
                     for (let u of storage.nodes()) {
                         yield* generateNodeChildrenConstraints(u);
-                        yield constrainNodePorts(u);
+                        yield* generateNodePortConstraints(u);
                         if(nonoverlapScheduler.get(step)) {
                             for(let sibling of (storage as StructuredStorage).siblings(u)) {
                                 yield constrainNodeNonoverlap(u, sibling);
@@ -169,7 +169,7 @@ storiesOf('force models', module)
                 optimizer: constraintOptimizer,
                 generator: function* (storage) {
                     for (let u of storage.nodes()) {
-                        yield constrainNodePorts(u);
+                        yield* generateNodePortConstraints(u);
                     }
                 }
             }
@@ -231,7 +231,7 @@ storiesOf('force models', module)
                             }
                         }
                         yield* generateNodeChildrenConstraints(u);
-                        yield constrainNodePorts(u);
+                        yield* generateNodePortConstraints(u);
                     }
                 }
             }
