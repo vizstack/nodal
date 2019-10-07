@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Node, Edge, Storage, StagedLayout, NodeId } from '../src/graph';
-import { node } from 'prop-types';
+import { Vector } from '../src/optim';
 
 type GraphProps = {
     layout: StagedLayout;
@@ -297,6 +297,14 @@ export class Graph extends React.Component<GraphProps, GraphState> {
 
         const edgeComponents = [];
         for(let edge of edges) {
+            const start = edge.path[0];
+            const end = edge.path[edge.path.length - 1];
+            if (edge.source.node.ports[edge.source.port].location === 'center') {
+                start.copy(edge.source.node.shape.boundary((new Vector()).subVectors(end, start)));
+            }
+            if (edge.target.node.ports[edge.target.port].location === 'center') {
+                end.copy(edge.target.node.shape.boundary((new Vector()).subVectors(start, end)));
+            }
             edgeComponents.push(
                 <g key={edge.id} id={edge.id}>
                     <path
