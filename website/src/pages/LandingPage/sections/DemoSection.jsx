@@ -145,7 +145,10 @@ class DemoSection extends React.Component {
         viewSource: true,
         layout: null,
     };
-    this.state.layout = this._buildLayout();
+    const { layout, nodeSchemas, edgeSchemas } = this._buildLayout();
+    this.state.layout = layout;
+    this.state.nodeSchemas = nodeSchemas;
+    this.state.edgeSchemas = edgeSchemas;
   }
 
   static _watchedState = ['animated', 'nodeChildren', 'nodeShape', 'nodePorts', 'edgeOrientation', 'edgeVariableLength', 'edgeRouting', 'constraintsFlow', 'constraintsFlowDirection', 'constraintsNonoverlap', 'constraintsAlignment', 'constraintsCircular', 'constraintsGrid'];
@@ -161,7 +164,7 @@ class DemoSection extends React.Component {
 
   componentDidUpdate(prevProps, prevState) {
     if(this._watchedStateChanged(prevState)) {
-      this.setState({ layout: this._buildLayout() });
+      this.setState(this._buildLayout());
     }
   }
 
@@ -174,6 +177,7 @@ class DemoSection extends React.Component {
     ].map((node) => ({
       ...node,
       ...(nodePorts ? {} : { ports: undefined }),
+      // ...(nodeShape ? {} : node.shape.type === "circle" ? {} : {}),
     }));
     let edgeSchemas = [
       ...kEdgesSimple,
@@ -254,7 +258,7 @@ class DemoSection extends React.Component {
       }
     );
 
-    return layout;
+    return { layout, nodeSchemas, edgeSchemas };
   }
 
   render() {
@@ -265,11 +269,34 @@ class DemoSection extends React.Component {
 
 // A 'NodeSchema'/'EdgeSchema' is a lightweight
 // object transforms into a full 'Node'/'Edge'.
-const nodeSchemas: NodeSchema[] = [
-  // Your data here.
+const nodeSchemas: NodeSchema[] = [${
+  JSON.stringify(this.state.nodeSchemas)
+  .replace(/{"id":/g, '\n  { "id":')
+  .replace(/,/g, ", ")
+  .replace(/:/g, ": ")
+  // .replace(/"id"/g, 'id')
+  // .replace(/"shape"/g, 'shape')
+  // .replace(/"type"/g, ' type')
+  // .replace(/"width"/g, 'width')
+  // .replace(/"height"/g, 'height')
+  // .replace(/"radius"/g, 'radius')
+  // .replace(/"ports"/g, 'ports')
+  // .replace(/"location"/g, ' location')
+  // .replace(/"children"/g, 'children')
+  .slice(1, -1)}
 ];
-const edgeSchemas: EdgeSchema[] = [
-  // Your data here.
+const edgeSchemas: EdgeSchema[] = [${
+  JSON.stringify(this.state.edgeSchemas)
+  .replace(/{"id":"e/g, '\n  { "id":"e')
+  .replace(/,/g, ", ")
+  .replace(/:/g, ": ")
+  // .replace(/"id"/g, 'id')
+  // .replace(/"source"/g, 'source')
+  // .replace(/"target"/g, 'target')
+  // .replace(/"meta"/g, 'meta')
+  // .replace(/"port"/g, 'port')
+  // .replace(/"flow"/g, 'flow')
+  .slice(1, -1)}
 ];`;
 
     let codeString =
@@ -289,13 +316,14 @@ const { nodes, edges } = fromSchema(nodeSchemas, edgeSchemas)
 // traversal over graph elements.
 const storage = new StructuredStorage(nodes, edges);
 const shortestPath = storage.shortestPaths();
-
-// A 'Scheduler' sets a boolean/numeric value over time.
-const orientationScheduler = new BooleanScheduler(true).for(75, false);
-const flowScheduler = new BooleanScheduler(true).for(50, false);
-const nonoverlapScheduler = new BooleanScheduler(true).for(50, false)
-const alignmentScheduler = new BooleanScheduler(true).for(50, false);
-
+${[
+  this.state.edgeOrientation || this.state.constraintsFlow ||  this.state.constraintsNonoverlap || this.state.constraintsAlignment ? "\n// A 'Scheduler' sets a boolean/numeric value over time." : "",
+  this.state.edgeOrientation ? "const orientationScheduler = new BooleanScheduler(true).for(75, false);" : "",
+  this.state.constraintsFlow ? "const flowScheduler = new BooleanScheduler(true).for(50, false);" : "",
+  this.state.constraintsNonoverlap ? "const nonoverlapScheduler = new BooleanScheduler(true).for(50, false);" : "",
+  this.state.constraintsAlignment ? "const alignmentScheduler = new BooleanScheduler(true).for(50, false);" : "",
+  " ",
+].filter((str) => str).join("\n")}
 // A 'Layout' performs the graph layout procedure on 'start()',
 // e.g. a 'StagedLayout' procedure is broken up into different
 // stages, each repeating some number of iterations.
@@ -314,7 +342,7 @@ const layout = new StagedLayout(
         kIdealLength,
         shortestPath,
       );
-      
+      ${!this.state.edgeOrientation ? `` : `
       // Snap edge angles to the closest of the given values.
       if(orientationScheduler.get(step)) {
         for(let edge of storage.edges()) {
@@ -326,14 +354,14 @@ const layout = new StagedLayout(
           );
         }
       }
-
+      `}
     },
   },
   { // 'Constraint' stage that satisfies constraints.
     iterations: 5,
     optimizer: new BasicOptimizer(),
     fn: function* (storage, step, iter) {
-
+      ${!this.state.constraintsFlow ? `` : `
       // Ensure edges flow in a particular direction.
       if(flowScheduler.get(step)) {
         for (let e of storage.edges()) {
@@ -346,7 +374,7 @@ const layout = new StagedLayout(
           }
         }
       }
-
+      `} ${!this.state.constraintsNonoverlap ? `` : `
       // Ensure boundaries of nodes do not overlap.
       if(nonoverlapScheduler.get(step)) {
         for (let u of storage.nodes()) {
@@ -355,7 +383,7 @@ const layout = new StagedLayout(
           }
         }
       }
-
+      `} ${!this.state.constraintsAlignment ? `` : `
       // Ensure specified nodes are aligned along the given axis.
       if(alignmentScheduler.get(step)) {
         for(let { ids, axis } of alignments) {
@@ -364,13 +392,14 @@ const layout = new StagedLayout(
           );
         }
       }
-      
+      `}
       // Ensure nodes contain their children and that ports are
       // placed on the correct location of the boundary.
       for (let u of storage.nodes()) {
         yield* generateNodeChildrenConstraints(u, kNodePadding);
         yield* generateNodePortConstraints(u);
       }
+
     },
   },
 );
