@@ -177,7 +177,7 @@ class DemoSection extends React.Component {
     ].map((node) => ({
       ...node,
       ...(nodePorts ? {} : { ports: undefined }),
-      // ...(nodeShape ? {} : node.shape.type === "circle" ? {} : {}),
+      ...(nodeShape ? {} : ( node.shape && node.shape.type === "circle" ? { shape: { type: "rectangle", height: 2*node.shape.radius, width: 2*node.shape.radius } } : {})),
     }));
     let edgeSchemas = [
       ...kEdgesSimple,
