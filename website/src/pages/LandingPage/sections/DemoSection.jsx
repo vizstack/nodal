@@ -15,6 +15,7 @@ import ViewSourceIcon from "@material-ui/icons/Code";
 // Syntax highlighter
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript';
+import javascript from 'react-syntax-highlighter/dist/esm/languages/prism/javascript';
 import prism from 'react-syntax-highlighter/dist/esm/styles/prism/prism';
 
 // Nodal elements
@@ -52,6 +53,7 @@ import {
 } from "assets/js/demo-data";
 
 SyntaxHighlighter.registerLanguage('typescript', typescript);
+SyntaxHighlighter.registerLanguage('javascript', javascript);
 
 class _SwitchOption extends React.Component {
     render() {
@@ -264,6 +266,7 @@ class DemoSection extends React.Component {
   render() {
     const { classes } = this.props;
 
+    const anyOptions = this.state.edgeOrientation || this.state.constraintsFlow ||  this.state.constraintsNonoverlap || this.state.constraintsAlignment;
     let dataString = 
 `import { NodeSchema, EdgeSchema } from 'nodal';
 
@@ -271,31 +274,35 @@ class DemoSection extends React.Component {
 // object transforms into a full 'Node'/'Edge'.
 const nodeSchemas: NodeSchema[] = [${
   JSON.stringify(this.state.nodeSchemas)
-  .replace(/{"id":/g, '\n  { "id":')
+  .replace(/{"id":/g, '\n  {"id":')
   .replace(/,/g, ", ")
   .replace(/:/g, ": ")
-  // .replace(/"id"/g, 'id')
-  // .replace(/"shape"/g, 'shape')
-  // .replace(/"type"/g, ' type')
-  // .replace(/"width"/g, 'width')
-  // .replace(/"height"/g, 'height')
-  // .replace(/"radius"/g, 'radius')
-  // .replace(/"ports"/g, 'ports')
-  // .replace(/"location"/g, ' location')
-  // .replace(/"children"/g, 'children')
+  .replace(/"id"/g, 'id')
+  .replace(/"shape"/g, 'shape')
+  .replace(/"type"/g, 'type')
+  .replace(/"width"/g, 'width')
+  .replace(/"height"/g, 'height')
+  .replace(/"radius"/g, 'radius')
+  .replace(/"ports"/g, 'ports')
+  .replace(/"location"/g, 'location')
+  .replace(/"children"/g, 'children')
+  .replace(/{/g, "{ ")
+  .replace(/}/g, " }")
   .slice(1, -1)}
 ];
 const edgeSchemas: EdgeSchema[] = [${
   JSON.stringify(this.state.edgeSchemas)
-  .replace(/{"id":"e/g, '\n  { "id":"e')
+  .replace(/{"id":"e/g, '\n  {"id":"e')
   .replace(/,/g, ", ")
   .replace(/:/g, ": ")
-  // .replace(/"id"/g, 'id')
-  // .replace(/"source"/g, 'source')
-  // .replace(/"target"/g, 'target')
-  // .replace(/"meta"/g, 'meta')
-  // .replace(/"port"/g, 'port')
-  // .replace(/"flow"/g, 'flow')
+  .replace(/"id"/g, 'id')
+  .replace(/"source"/g, 'source')
+  .replace(/"target"/g, 'target')
+  .replace(/"meta"/g, 'meta')
+  .replace(/"port"/g, 'port')
+  .replace(/"flow"/g, 'flow')
+  .replace(/{/g, "{ ")
+  .replace(/}/g, " }")
   .slice(1, -1)}
 ];`;
 
@@ -305,8 +312,18 @@ const edgeSchemas: EdgeSchema[] = [${
   StructuredStorage,
   StagedLayout,
   BasicOptimizer,
-  EnergyOptimizer,
-} from 'nodal';
+  BooleanScheduler,
+  generateSpringForces,
+  generateNodeChildrenConstraints,
+  generateNodePortConstraints,
+${[
+    this.state.constraintsAlignment && 'generateNodeAlignmentConstraints',
+    this.state.edgeOrientation && 'nudgeAngle',
+    this.state.constraintsFlow && 'constrainNodeOffset',
+    this.state.constraintsNonoverlap && 'constrainNodeNonoverlap',
+  ].filter((str) => str).map((str) => `  ${str},`).join('\n').concat(
+    anyOptions ? "\n" : ""
+  )}} from 'nodal';
 
 // Unspecified properties are filled in with sensible defaults,
 // e.g. random initalization of node positions.
@@ -317,11 +334,11 @@ const { nodes, edges } = fromSchema(nodeSchemas, edgeSchemas)
 const storage = new StructuredStorage(nodes, edges);
 const shortestPath = storage.shortestPaths();
 ${[
-  this.state.edgeOrientation || this.state.constraintsFlow ||  this.state.constraintsNonoverlap || this.state.constraintsAlignment ? "\n// A 'Scheduler' sets a boolean/numeric value over time." : "",
-  this.state.edgeOrientation ? "const orientationScheduler = new BooleanScheduler(true).for(75, false);" : "",
-  this.state.constraintsFlow ? "const flowScheduler = new BooleanScheduler(true).for(50, false);" : "",
-  this.state.constraintsNonoverlap ? "const nonoverlapScheduler = new BooleanScheduler(true).for(50, false);" : "",
-  this.state.constraintsAlignment ? "const alignmentScheduler = new BooleanScheduler(true).for(50, false);" : "",
+  anyOptions && "\n// A 'Scheduler' sets a boolean/numeric value over time.",
+  this.state.edgeOrientation && "const orientationScheduler = new BooleanScheduler(true).for(75, false);",
+  this.state.constraintsFlow && "const flowScheduler = new BooleanScheduler(true).for(50, false);",
+  this.state.constraintsNonoverlap && "const nonoverlapScheduler = new BooleanScheduler(true).for(50, false);",
+  this.state.constraintsAlignment && "const alignmentScheduler = new BooleanScheduler(true).for(50, false);",
   " ",
 ].filter((str) => str).join("\n")}
 // A 'Layout' performs the graph layout procedure on 'start()',
@@ -572,12 +589,12 @@ layout.start();
             [classes.sourceHidden]: !this.state.viewSource,
           })}>
             <GridItem xs={12} md={5} className={classes.codeblock}>
-              <SyntaxHighlighter language="typescript" style={prism} className={classes.syntax}>
+              <SyntaxHighlighter language="javascript" style={prism} className={classes.highlighter} codeTagProps={{className: classes.syntax}}>
                 {dataString}
               </SyntaxHighlighter>
             </GridItem>
             <GridItem xs={12} md={7} className={classes.codeblock}>
-            <SyntaxHighlighter language="typescript" style={prism} className={classes.syntax}>
+            <SyntaxHighlighter language="typescript" style={prism} className={classes.highlighter}>
                 {codeString}
               </SyntaxHighlighter>
             </GridItem>
@@ -642,8 +659,13 @@ const styles = {
     marginTop: 8,
     marginBottom: 8,
   },
-  syntax: {
+  highlighter: {
     margin: '0px !important',
+  },
+  syntax: {
+    '& > span.token.dom': {
+      color: 'inherit !important',  // Don't highlight dom elements.
+    }
   }
 };
 
