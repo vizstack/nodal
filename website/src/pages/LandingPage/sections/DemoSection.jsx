@@ -654,7 +654,7 @@ const styles = {
     maxHeight: 0,
   },
   codeblock: {
-    maxHeight: '75vh',    
+    maxHeight: '80vh',    
     overflow: 'auto',
     marginTop: 8,
     marginBottom: 8,

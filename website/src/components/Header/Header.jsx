@@ -211,7 +211,7 @@ const styles = {
   },
   container: {
     ...container,
-    minHeight: "50px",
+    minHeight: "35px",
     flex: "1",
     alignItems: "center",
     justifyContent: "space-between",

@@ -245,7 +245,7 @@ export class Graph extends React.Component {
                                 pointerEvents: 'none',
                                 userSelect: 'none',
                             }}>
-                            {node.id === 'n13' ? '14' : (node.id === 'n14' ? '13' : node.id.substring(1))}
+                            {node.id.substring(1)}
                         </text>
                         {Object.entries(node.ports).map(([name, port]) => (
                             name.startsWith('_') ? null : (
