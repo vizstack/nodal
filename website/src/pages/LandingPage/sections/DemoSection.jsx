@@ -579,12 +579,12 @@ layout.start();
               )}
           </GridItem>
           <GridItem xs={12} className={classes.button}>
-            <Button size="sm" onClick={() => this.setState((s) => ({ viewSource: !s.viewSource }))}>
+            <Button size="small" onClick={() => this.setState((s) => ({ viewSource: !s.viewSource }))}>
               <ViewSourceIcon className={classes.icon}/>
               {this.state.viewSource ? "Hide" : "Show"} Data/Code
             </Button>
           </GridItem>
-          <GridContainer xs={12} className={classNames({
+          <GridContainer className={classNames({
             [classes.source]: true,
             [classes.sourceHidden]: !this.state.viewSource,
           })}>

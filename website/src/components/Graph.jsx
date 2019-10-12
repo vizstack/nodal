@@ -181,6 +181,7 @@ export class Graph extends React.Component {
                         {Object.entries(node.ports).map(([name, port]) => (
                             name.startsWith('_') ? null : (
                                 <circle
+                                    key={name}
                                     cx={port.point.x}
                                     cy={port.point.y}
                                     r={kPortRadius}
@@ -250,6 +251,7 @@ export class Graph extends React.Component {
                         {Object.entries(node.ports).map(([name, port]) => (
                             name.startsWith('_') ? null : (
                                 <circle
+                                    key={name}
                                     cx={port.point.x}
                                     cy={port.point.y}
                                     r={kPortRadius}

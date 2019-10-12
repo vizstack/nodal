@@ -5,11 +5,12 @@
   "version": "0.1.0",
   "license": "MIT",
   "scripts": {
-    "build": "gatsby build --prefix-paths",
-    "develop": "gatsby develop",
-    "format": "prettier --write src/**/*.{js,jsx}",
     "start": "npm run develop",
+    "develop": "gatsby develop",
+    "build": "gatsby build --prefix-paths",
     "serve": "gatsby serve",
+    "clean": "rimraf public .docz .cache",
+    "format": "prettier --write src/**/*.{js,jsx}",
     "test": "echo \"Write tests! -> https://gatsby.dev/unit-testing\""
   },
   "dependencies": {
@@ -21,13 +22,14 @@
     "@material-ui/icons": "^3.0.2",
     "classnames": "^2.2.6",
     "core-js": "^2.6.5",
-    "gatsby": "^2.1.24",
+    "gatsby": "^2.15.36",
     "gatsby-plugin-manifest": "^2.0.22",
     "gatsby-plugin-material-ui": "1.2.5",
     "gatsby-plugin-offline": "^2.0.24",
     "gatsby-plugin-react-helmet": "^3.0.8",
     "gatsby-plugin-resolve-src": "^2.0.0",
     "gatsby-plugin-sass": "^2.0.10",
+    "gatsby-theme-docz": "^2.0.0-rc.55",
     "history": "^4.7.2",
     "node-sass": "^4.11.0",
     "nouislider": "^13.1.1",
@@ -45,7 +47,8 @@
     "typeface-roboto-slab": "0.0.72"
   },
   "devDependencies": {
-    "prettier": "^1.16.4"
+    "prettier": "^1.16.4",
+    "rimraf": "^3.0.0"
   },
   "repository": {
     "type": "git",

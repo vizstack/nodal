@@ -59,6 +59,9 @@ typings/
 .cache/
 public
 
+# docz files
+.docz
+
 # Mac files
 .DS_Store
 

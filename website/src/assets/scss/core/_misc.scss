@@ -72,7 +72,9 @@ html {
   -ms-text-size-adjust: 100%;
   -ms-overflow-style: scrollbar;
   -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
 }
+
 body {
   background-color: #e5e5e5;
   color: $black-color;
@@ -96,12 +98,12 @@ legend {
 }
 
 a {
-  color: $link-color;
+  color: #0080D5;
   text-decoration: none;
   background-color: transparent;
   &:hover,
   &:focus {
-    color: darken($link-color, 5%);
+    color: darken(#0080D5, 5%);
     text-decoration: none;
   }
 }
