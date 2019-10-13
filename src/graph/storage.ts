@@ -191,6 +191,9 @@ export class StructuredStorage extends BasicStorage {
     public hasDescendant(n: Node, descendant: Node): boolean {
         return this.hasAncestor(descendant, n);
     }
+    public hasAncestorOrDescendant(n: Node, other: Node) {
+        return this.hasAncestor(n, other) || this.hasAncestor(other, n);
+    }
     public leastCommonAncestor(u: Node, v: Node): Node | undefined {
         const visited: Set<Node> = new Set();
         let left: Node | undefined = u;
