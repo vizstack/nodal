@@ -22,13 +22,6 @@ export default {
           'Metro',
         ],
       },
-      {
-        name: 'API',
-        menu: [
-          'Overview',
-          'nodal/optim',
-          'nodal/graph',
-        ],
-      },
+      'API',
     ]
   }

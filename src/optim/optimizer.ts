@@ -31,7 +31,7 @@ export abstract class Optimizer {
  * A `BasicOptimizer` uses a fixed learning rate and decay factor.
  */
 export class BasicOptimizer extends Optimizer {
-    constructor(protected lr: number = 1, protected decay: number = 1) {
+    constructor(public lr: number = 1, public decay: number = 1) {
         super();
     }
 
@@ -50,7 +50,7 @@ export class BasicOptimizer extends Optimizer {
 export class ScheduledOptimizer extends Optimizer {
     protected _timestep: number;
     protected _lr: number;
-    constructor(protected scheduler: NumberScheduler) {
+    constructor(public scheduler: NumberScheduler) {
         super();
         this._timestep = 0;
         this._lr = scheduler.get(0);
@@ -67,7 +67,7 @@ export class ScheduledOptimizer extends Optimizer {
 }
 
 /** Configuration options for a `TrustRegionOptimizer`. */
-export type EnergyOptimizerConfig = {
+type EnergyOptimizerConfig = {
     /** Initial learning rate. (default: 1) */
     lrInitial: number;
 
@@ -154,7 +154,7 @@ export class EnergyOptimizer extends Optimizer {
 export class RMSPropOptimizer extends Optimizer {
     protected _square_avgs: Map<Vector, Vector>;
 
-    constructor(protected lr: number = 1, protected smoothing: number = 0.99) {
+    constructor(public lr: number = 1, public smoothing: number = 0.99) {
         super();
         this._square_avgs = new Map();
     }

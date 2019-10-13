@@ -1,6 +1,6 @@
 import React from "react";
 import {createMemoryHistory} from "history";
-import {Route, BrowserRouter, Switch} from "react-router-dom";
+import {Route, Router, BrowserRouter, Switch} from "react-router-dom";
 
 import "assets/scss/material-kit-react.scss?v=1.4.0";
 import 'typeface-roboto';
@@ -11,13 +11,10 @@ import LandingPage from "./LandingPage/LandingPage.jsx";
 import ExamplesPage from "./ExamplesPage/ExamplesPage.jsx";
 import Components from "./examples/Components/Components.jsx";
 
-// let hist = createMemoryHistory();
-
-// Set scrolling to be smoothly animated.
-if(window) window.scrollTo({ behavior: 'smooth' });
+let hist = createMemoryHistory();
 
 export default () => (
-  <BrowserRouter>
+  <Router history={hist}>
     <Switch>
       {/* <Route path="/profile-page" component={ProfilePage} />
       <Route path="/login-page" component={LoginPage} /> */}
@@ -25,5 +22,5 @@ export default () => (
       <Route path="/" component={LandingPage} />
       <Route path="/storybook" component={ExamplesPage} />
     </Switch>
-  </BrowserRouter>
+  </Router>
 );

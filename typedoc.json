@@ -1,0 +1,11 @@
+{
+    "out": "website/static/typedoc",
+    "mode": "modules",
+    "exclude": ["**/*.test.{ts,tsx,js,jsx}", "**/index.{ts,tsx,js,jsx}"],
+    "excludeNotExported": true,
+    "excludePrivate": true,
+    "excludeProtected": true,
+    "name": " ",
+    "readme": "none",
+    "theme": "minimal"
+}

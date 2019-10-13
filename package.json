@@ -44,6 +44,7 @@
     "ts-jest": "^24.0.2",
     "ts-loader": "^6.0.4",
     "ts-node": "^8.3.0",
+    "typedoc": "^0.15.0",
     "typescript": "^3.6.2"
   },
   "scripts": {
@@ -51,6 +52,7 @@
     "test": "jest",
     "prebuild": "npm run clean",
     "build": "tsc",
+    "typedoc": "typedoc src/",
     "clean": "rimraf dist/*",
     "repl": "ts-node",
     "format": "prettier --config ./.prettierrc --write \"{src,stories}/**/*.{js,jsx,ts,tsx}\"",
