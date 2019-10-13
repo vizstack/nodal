@@ -331,7 +331,7 @@ export function constrainNodeNonoverlap(
     u: Node,
     v: Node,
     margin: number = 0,
-): Gradient[] {
+): [Gradient, Gradient] | [] {
     // TODO: Rewrite using collision checker
     // TODO: Integrate margin.
     const { x: ux, y: uy, X: uX, Y: uY, width: uwidth, height: uheight } = u.shape.bounds();
@@ -345,12 +345,7 @@ export function constrainNodeNonoverlap(
     const ygradlen = ygrad.reduce((sum, grad) => sum + grad.grad.length(), 0);
     const [ugrad, vgrad] = xgradlen < ygradlen ? xgrad : ygrad;
 
-    return [
-        ugrad,
-        vgrad,
-        ...applyGradientToDescendants(u, vgrad), 
-        ...applyGradientToDescendants(v, vgrad),
-    ];
+    return [ugrad, vgrad];
 }
 
 /**

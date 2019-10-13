@@ -23,7 +23,8 @@ export function* generateSpringForces(
     const visited = new Set();
     for(let u of storage.nodes()) {
         visited.add(u);
-        for(let v of storage.siblings(u)) {
+        const siblings = storage.siblings(u);
+        for(let v of storage.nodes()) {
             if(visited.has(v)) continue;
             if(u.fixed && v.fixed) continue;
             const [wu, wv] = [u.fixed ? 0 : 1, v.fixed ? 0 : 1];
@@ -36,11 +37,11 @@ export function* generateSpringForces(
             const axis = (new Vector()).subVectors(v.center, u.center);
             const actualDistance = axis.length() > 0 ? u.shape.boundary(axis).distanceTo(v.shape.boundary(axis.negate())) : 0;
             
-            if(storage.existsEdge(u, v, true) && actualDistance > idealDistance) {
+            if(storage.existsEdge(u, v, true) && actualDistance > idealDistance && !storage.hasAncestor(u, v) && !storage.hasAncestor(v, u)) {
                 // Attractive force between edges if too far.
                 const delta = actualDistance - idealDistance;
                 yield nudgePair(u.center, v.center, [-wu*delta, -wv*delta]);
-            } else if(actualDistance < idealDistance) {
+            } else if(actualDistance < idealDistance && siblings.has(v)) {
                 // Repulsive force between node pairs if too close.
                 const delta = (idealDistance - actualDistance) / Math.pow(uvPath, 2);
                 yield nudgePair(u.center, v.center, [wu*delta, wv*delta]);
@@ -120,6 +121,6 @@ export function* generateNodeChildrenConstraints(
     padding: number = 0,
 ) {
     if (u.children.length > 0) {
-        yield u.shape.constrainShapesWithin(u.children.map((child) => child.shape), -padding);
+        yield u.shape.constrainShapesWithin(u.children.map((child) => child.shape), padding);
     }
 }
