@@ -45,7 +45,7 @@ export abstract class Shape {
      * @param subshapes 
      * @param offset 
      */
-    public abstract constrainShapesWithin(subshapes: Shape[], offset: number): [Gradient, Gradient] | [];
+    public abstract constrainShapesWithin(subshapes: Shape[], offset: number): Gradient[] | [];
 
     /**
      * Produces gradients to keep the `point` within this shape, adjusting this shape's dimensions
@@ -152,16 +152,22 @@ export class Rectangle extends Shape {
         );
     }
 
-    public constrainShapesWithin(subshapes: Shape[], offset: number = 0): [Gradient, Gradient] {
+    public constrainShapesWithin(subshapes: Shape[], offset: number = 0): Gradient[] {
+        const masses = { shape: 1, subshapes: 1 };
         let box = new Box2();
         subshapes.forEach((subshape) => {
             const { x, y, X, Y } = subshape.bounds();
             box.union(new Box2(new Vector(x, y), new Vector(X, Y)));
         });
         box.expandByScalar(offset);
-        const centerGrad = (new Vector()).subVectors(box.getCenter(new Vector()), this.center);
+        const centerGrad = (new Vector()).subVectors(box.getCenter(new Vector()), this.center).multiplyScalar(masses.subshapes / (masses.shape + masses.subshapes));
         const controlGrad = (new Vector()).subVectors(box.max, (new Vector()).addVectors(this.control, this.center));
-        return [new Gradient(this.center, centerGrad), new Gradient(this.control, controlGrad)];
+        const subshapeGrad = (new Vector()).subVectors(box.getCenter(new Vector()), this.center).multiplyScalar(-masses.shape / (masses.shape + masses.subshapes));
+        return [
+            new Gradient(this.center, centerGrad),
+            new Gradient(this.control, controlGrad),
+            ...subshapes.map((s) => new Gradient(s.center, subshapeGrad.clone())),
+        ];
     }
 
     public constrainPointWithin(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {

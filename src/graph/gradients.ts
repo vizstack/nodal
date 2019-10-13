@@ -343,23 +343,14 @@ export function constrainNodeNonoverlap(
     const ygrad = constrainDistance(u.center, v.center, ">=", (uheight + vheight) / 2, { axis: [0, 1] });
     const xgradlen = xgrad.reduce((sum, grad) => sum + grad.grad.length(), 0);
     const ygradlen = ygrad.reduce((sum, grad) => sum + grad.grad.length(), 0);
-    const shorter = xgradlen < ygradlen ? xgrad : ygrad;
+    const [ugrad, vgrad] = xgradlen < ygradlen ? xgrad : ygrad;
 
-    // Bump all descendants by gradient on root.
-    function moveChildren(p: Node, grad: Vector) {
-        if (p.children.length > 0) {
-            p.children.forEach((c) => {
-                shorter.push(new Gradient(c.center, grad));
-                moveChildren(c, grad);
-            });
-        }
-    }
-    for (let grad of shorter) {
-        if (grad.point === u.center) moveChildren(u, grad.grad);
-        if (grad.point === v.center) moveChildren(v, grad.grad);
-    }
-
-    return shorter;
+    return [
+        ugrad,
+        vgrad,
+        ...applyGradientToDescendants(u, vgrad), 
+        ...applyGradientToDescendants(v, vgrad),
+    ];
 }
 
 /**
@@ -492,4 +483,23 @@ export function constrainNodeGrid(u: Node, dx: number, dy: number): Gradient[] {
     const snapx = Math.floor(u.center.x / dx) * dx;
     const snapy = Math.floor(u.center.y / dy) * dy;
     return constrainDistance(u.center, new Vector(snapx, snapy), "=", 0);
+}
+
+/**
+ * Apply the specified gradient to all the descendants of `u`.
+ * @param u 
+ * @param grad 
+ */
+export function applyGradientToDescendants(u: Node, grad: Gradient): Gradient[] {
+    const grads: Gradient[] = [];
+    function apply(n: Node, g: Vector) {
+        if (n.children.length > 0) {
+            n.children.forEach((c) => {
+                grads.push(new Gradient(c.center, g));
+                apply(c, g);
+            });
+        }
+    }
+    apply(u, grad.grad);
+    return grads;
 }
