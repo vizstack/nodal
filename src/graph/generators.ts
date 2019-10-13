@@ -23,14 +23,12 @@ export function* generateSpringForces(
     const visited = new Set();
     for(let u of storage.nodes()) {
         visited.add(u);
-        for(let v of storage.nodes()) {
+        for(let v of storage.siblings(u)) {
             if(visited.has(v)) continue;
             if(u.fixed && v.fixed) continue;
             const [wu, wv] = [u.fixed ? 0 : 1, v.fixed ? 0 : 1];
 
             // Forces act on only nodes that are not direct ancestors/descendants.
-            if(storage.hasAncestor(u, v) || storage.hasAncestor(v, u)) continue;
-
             const uvPath = shortestPath(u, v);
             if(uvPath === undefined) continue; // Ignore disconnected components.
             let idealDistance = (typeof idealLength === "function") ? uvPath * idealLength(u, v) : uvPath * idealLength;
@@ -121,35 +119,7 @@ export function* generateNodeChildrenConstraints(
     u: Node,
     padding: number = 0,
 ) {
-    let controlGrads: Gradient[] = [];
-    let centerGrads: Gradient[] = [];
-    let grads: Gradient[] = [];
-    u.children.map((child) => u.shape.constrainShapeWithin(child.shape, { offset: -padding, expansion: 0.2, masses: { shape: 1, subshape: 10 } })).filter((grads) => grads.length > 0).forEach(([shapeGrad, centerGrad, controlGrad]) => {
-        controlGrads.push(controlGrad);
-        centerGrads.push(centerGrad);
-        grads.push(shapeGrad);
-    });
-    let controlGrad: Gradient | undefined = undefined;
-    let centerGrad: Gradient | undefined = undefined;
-    controlGrads.forEach((grad) => {
-        if (!controlGrad || grad.grad.length() > controlGrad.grad.length()) {
-            controlGrad = grad;
-        }
-    })
-    if (controlGrad) {
-        grads.push(controlGrad);
-    }
-    centerGrads.forEach((grad) => {
-        if (!centerGrad || grad.grad.length() > centerGrad.grad.length()) {
-            centerGrad = grad;
-        }
-    });
-    if (centerGrad) {
-        grads.push(centerGrad);
-    }
-    yield grads;
-
     if (u.children.length > 0) {
-        yield (u.shape as any).constrainShapeCompact(u.children.map((child) => child.shape), -padding);
+        yield u.shape.constrainShapesWithin(u.children.map((child) => child.shape), -padding);
     }
 }
