@@ -45,19 +45,7 @@ export abstract class Shape {
      * @param subshapes 
      * @param offset 
      */
-    public abstract constrainShapeCompact(subshapes: Shape[], offset: number): [Gradient, Gradient] | [];
-
-    /**
-     * Produces gradients to keep the child `shape` within this shape, adjusting this shape's dimensions and the child `shape`'s location according to the relative masses.
-     * @param shape
-     *     The shape to constrain within this shape's boundary.
-     * @param masses
-     *     The mass of this shape and the child shape, respectively.
-     */
-    public abstract constrainShapeWithin(
-        subshape: Shape,
-        config?: Partial<{ masses: { shape: number, subshape: number }, expansion: number, offset: number }>
-    ): Gradient[];
+    public abstract constrainShapesWithin(subshapes: Shape[], offset: number): [Gradient, Gradient] | [];
 
     /**
      * Produces gradients to keep the `point` within this shape, adjusting this shape's dimensions
@@ -164,7 +152,7 @@ export class Rectangle extends Shape {
         );
     }
 
-    public constrainShapeCompact(subshapes: Shape[], offset: number = 0): [Gradient, Gradient] {
+    public constrainShapesWithin(subshapes: Shape[], offset: number = 0): [Gradient, Gradient] {
         let box = new Box2();
         subshapes.forEach((subshape) => {
             const { x, y, X, Y } = subshape.bounds();
@@ -174,36 +162,6 @@ export class Rectangle extends Shape {
         const centerGrad = (new Vector()).subVectors(box.getCenter(new Vector()), this.center);
         const controlGrad = (new Vector()).subVectors(box.max, (new Vector()).addVectors(this.control, this.center));
         return [new Gradient(this.center, centerGrad), new Gradient(this.control, controlGrad)];
-    }
-
-    public constrainShapeWithin(subshape: Shape, { masses = { shape: 1, subshape: 1 }, expansion = 0, offset = 0 } = {}) {
-        let maxPointGradLen = Number.NEGATIVE_INFINITY;
-        let maxCenterGradLen = Number.NEGATIVE_INFINITY;
-        let maxControlGradLen = Number.NEGATIVE_INFINITY;
-        let maxPointGrad, maxCenterGrad, maxControlGrad = undefined;
-        for(let normal of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
-            const support = subshape.support(new Vector(normal[0], normal[1]));
-            const g = this.constrainPointWithin(support, { masses: { shape: masses.shape, point: masses.subshape }, expansion, offset });
-            if(g.length === 0) continue;
-            const [pointGrad, centerGrad, controlGrad] = g;
-            if(pointGrad.grad.length() > maxPointGradLen) {
-                maxPointGrad = pointGrad;
-                maxPointGradLen = pointGrad.grad.length();
-            }
-            if(centerGrad.grad.length() > maxCenterGradLen) {
-                maxCenterGrad = centerGrad;
-                maxCenterGradLen = centerGrad.grad.length();
-            }
-            if(controlGrad.grad.length() > maxControlGradLen) {
-                maxControlGrad = controlGrad;
-                maxControlGradLen = controlGrad.grad.length();
-            }
-        }
-        const grads = [];
-        if (maxPointGrad !== undefined) grads.push(new Gradient(subshape.center, maxPointGrad.grad));
-        if (maxCenterGrad !== undefined) grads.push(maxCenterGrad);
-        if (maxControlGrad !== undefined) grads.push(maxControlGrad);
-        return grads;
     }
 
     public constrainPointWithin(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
@@ -307,7 +265,7 @@ export class Circle extends Shape {
         return (new Vector()).subVectors(point, this.center).length() < this.radius.x;
     }
 
-    public constrainShapeCompact(subshapes: Shape[], offset: number = 0): [Gradient, Gradient] {
+    public constrainShapesWithin(subshapes: Shape[], offset: number = 0): [Gradient, Gradient] {
         // TODO: do something smarter than bounding rectangle enclosure
         let box = new Box2();
         subshapes.forEach((subshape) => {
@@ -318,19 +276,6 @@ export class Circle extends Shape {
         const centerGrad = (new Vector()).subVectors(box.getCenter(new Vector()), this.center);
         const controlGrad = (new Vector()).subVectors(new Vector(box.getSize(new Vector()).multiplyScalar(0.5).length(), 0), this.radius);
         return [new Gradient(this.center, centerGrad), new Gradient(this.radius, controlGrad)];
-    }
-
-    public constrainShapeWithin(subshape: Shape, { masses = { shape: 1, subshape: 1 }, expansion = 0, offset = 0 } = {}) {
-        // TODO: do something smarter than bounding rectangle enclosure
-        const { x, y, X, Y } = subshape.bounds();
-        const farthestPoint = new Vector(X, Y);
-        if (Math.abs(x - this.center.x) > Math.abs(X - this.center.x)) {
-            farthestPoint.x = x;
-        }
-        if (Math.abs(y - this.center.y) > Math.abs(Y - this.center.y)) {
-            farthestPoint.y = y;
-        }
-        return this.constrainPointWithin(farthestPoint, { masses: { shape: masses.shape, point: masses.subshape }, expansion, offset });
     }
 
     public constrainPointWithin(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
