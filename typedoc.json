@@ -5,7 +5,7 @@
     "excludeNotExported": true,
     "excludePrivate": true,
     "excludeProtected": true,
-    "name": " ",
+    "name": "main page - nodal",
     "readme": "none",
     "theme": "minimal"
 }

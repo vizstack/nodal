@@ -101,4 +101,7 @@ export const kEdgesCompound = [
     { id: 'e15->p2-1', source: { id: 'n15' }, target: { id: 'p2-1' } },
 ];
 
-export const kAlignments = [{ ids: ['n4', 'n12', 'n19', 'n21'], axis: [1, 0] }];
+export const kAlignments = [
+    { ids: ['n4', 'n12', 'n19', 'n21'], axis: [1, 0] },
+    { ids: ['n21', 'n22'], axis: [0, 1]},
+];

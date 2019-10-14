@@ -125,6 +125,7 @@ const kIdealLength = 20;
 const kFlowSeparation = 30;
 const kCompactness = 0;
 const kNodePadding = 0;
+const kOrientationStrength = 100;
 
 class DemoSection extends React.Component {
   constructor(props) {
@@ -196,10 +197,10 @@ class DemoSection extends React.Component {
 
     // Enable constraints depending on configuration.
     const { edgeOrientation, edgeVariableLength, edgeRouting, constraintsFlow, constraintsFlowDirection, constraintsNonoverlap, constraintsAlignment, constraintsCircular, constraintsGrid } = this.state;
-    const nonoverlapScheduler = new BooleanScheduler(true).for(50, false)
-    const flowScheduler = new BooleanScheduler(true).for(50, false);
+    const orientationScheduler = new BooleanScheduler(true).for(50, false);
+    const flowScheduler = new BooleanScheduler(true).for(20, false);
+    const nonoverlapScheduler = new BooleanScheduler(true).for(30, false)
     const alignmentScheduler = new BooleanScheduler(true).for(50, false);
-    const orientationScheduler = new BooleanScheduler(true).for(75, false);
     const layout = new StagedLayout(
       storage,
       { steps: 200 },
@@ -217,7 +218,7 @@ class DemoSection extends React.Component {
           
           if(edgeOrientation && orientationScheduler.get(step)) {
               for(let edge of storage.edges()) {
-                yield nudgeAngle(edge.source.node.center, edge.target.node.center, [0, 45, 90, 135, 180, 225, 270, 315], 100);
+                yield nudgeAngle(edge.source.node.center, edge.target.node.center, [0, 45, 90, 135, 180, 225, 270, 315], kOrientationStrength);
               }
           }
         },
@@ -235,13 +236,13 @@ class DemoSection extends React.Component {
             if(constraintsFlow && flowScheduler.get(step)) {
               if(constraintsFlowDirection === 'single') {
                 for (let e of storage.edges()) {
-                  if (!storage.hasAncestor(e.source.node, e.target.node) && !storage.hasAncestor(e.target.node, e.source.node)) {
+                  if (!storage.hasAncestorOrDescendant(e.source.node, e.target.node)) {
                     yield constrainNodeOffset(e.source.node, e.target.node, ">=", kFlowSeparation, [0, 1], { masses: [e.source.node.fixed ? 1e9 : 1, e.target.node.fixed ? 1e9 : 1] });
                   }
                 }
               } else if (constraintsFlowDirection === 'multiple') {
                 for (let e of storage.edges()) {
-                  if (!storage.hasAncestor(e.source.node, e.target.node) && !storage.hasAncestor(e.target.node, e.source.node)) {
+                  if (!storage.hasAncestorOrDescendant(e.source.node, e.target.node)) {
                     yield constrainNodeOffset(e.source.node, e.target.node, ">=", kFlowSeparation, e.meta && e.meta.flow === "east" ? [1, 0] : [0, 1], { masses: [e.source.node.fixed ? 1e9 : 1, e.target.node.fixed ? 1e9 : 1] });
                   }
                 }
@@ -304,7 +305,18 @@ const edgeSchemas: EdgeSchema[] = [${
   .replace(/{/g, "{ ")
   .replace(/}/g, " }")
   .slice(1, -1)}
-];`;
+];${
+  this.state.constraintsAlignment ? `\nconst alignments = [${
+  JSON.stringify(kAlignments)
+    .replace(/{"ids":/g, '\n  {"ids":')
+    .replace(/,/g, ", ")
+    .replace(/:/g, ": ")
+    .replace(/"ids"/g, 'ids')
+    .replace(/"axis"/g, 'axis')
+    .replace(/{/g, "{ ")
+    .replace(/}/g, " }")
+    .slice(1, -1)}
+];`: ""}`;
 
     let codeString =
 `import {
@@ -335,9 +347,9 @@ const storage = new StructuredStorage(nodes, edges);
 const shortestPath = storage.shortestPaths();
 ${[
   anyOptions && "\n// A 'Scheduler' sets a boolean/numeric value over time.",
-  this.state.edgeOrientation && "const orientationScheduler = new BooleanScheduler(true).for(75, false);",
-  this.state.constraintsFlow && "const flowScheduler = new BooleanScheduler(true).for(50, false);",
-  this.state.constraintsNonoverlap && "const nonoverlapScheduler = new BooleanScheduler(true).for(50, false);",
+  this.state.edgeOrientation && "const orientationScheduler = new BooleanScheduler(true).for(50, false);",
+  this.state.constraintsFlow && "const flowScheduler = new BooleanScheduler(true).for(20, false);",
+  this.state.constraintsNonoverlap && "const nonoverlapScheduler = new BooleanScheduler(true).for(30, false);",
   this.state.constraintsAlignment && "const alignmentScheduler = new BooleanScheduler(true).for(50, false);",
   " ",
 ].filter((str) => str).join("\n")}
