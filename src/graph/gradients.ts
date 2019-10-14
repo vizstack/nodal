@@ -46,7 +46,7 @@ export function constrainDistance(
         masses: [number, number],
         axis?: [number, number]
     }> = {},
-): Gradient[] {
+): [Gradient, Gradient] | [] {
     const pq = (new Vector()).subVectors(q, p);
     const v = axis ?
         (new Vector(axis[0], axis[1])).normalize() :
@@ -92,7 +92,7 @@ export function constrainOffset(
     }: Partial<{
         masses: [number, number]
     }> = {},
-): Gradient[] {
+): [Gradient, Gradient] | [] {
     const pq = (new Vector()).subVectors(q, p);
     const v = (new Vector(direction[0], direction[1])).normalize();
     const projected = pq.dot(v);
@@ -127,7 +127,7 @@ export function nudgeAngle(
     angle: number | number[],
     strength: number = 1,
     { masses = [1, 1] }: Partial<{ masses: [number, number] }> = {},
-): Gradient[] {
+): [Gradient, Gradient] {
     const pq = (new Vector()).subVectors(q, p).normalize();
     const pqAngle = Math.atan2(pq.y, pq.x) * 180 / Math.PI;  // In degrees.
     let desired: number;
@@ -333,19 +333,20 @@ export function constrainNodeNonoverlap(
     margin: number = 0,
 ): [Gradient, Gradient] | [] {
     // TODO: Rewrite using collision checker
-    // TODO: Integrate margin.
     const { x: ux, y: uy, X: uX, Y: uY, width: uwidth, height: uheight } = u.shape.bounds();
     const { x: vx, y: vy, X: vX, Y: vY, width: vwidth, height: vheight } = v.shape.bounds();
     const ubounds = new Box2(new Vector(ux, uy), new Vector(uX, uY));
     const vbounds = new Box2(new Vector(vx, vy), new Vector(vX, vY));
     if (!ubounds.intersectsBox(vbounds)) return [];
-    const xgrad = constrainDistance(u.center, v.center, ">=", (uwidth + vwidth) / 2, { axis: [1, 0] });
-    const ygrad = constrainDistance(u.center, v.center, ">=", (uheight + vheight) / 2, { axis: [0, 1] });
-    const xgradlen = xgrad.reduce((sum, grad) => sum + grad.grad.length(), 0);
-    const ygradlen = ygrad.reduce((sum, grad) => sum + grad.grad.length(), 0);
-    const [ugrad, vgrad] = xgradlen < ygradlen ? xgrad : ygrad;
-
-    return [ugrad, vgrad];
+    const xgrad = constrainDistance(u.center, v.center, ">=", (uwidth + vwidth) / 2 + 2 * margin, { axis: [1, 0] });
+    const ygrad = constrainDistance(u.center, v.center, ">=", (uheight + vheight) / 2 + 2 * margin, { axis: [0, 1] });
+    if(xgrad.length !== 0 && ygrad.length !== 0) {
+        const xgradlen = xgrad[0].grad.length() + xgrad[1].grad.length();
+        const ygradlen = ygrad[0].grad.length() + ygrad[1].grad.length();
+        return xgradlen < ygradlen ? xgrad : ygrad;
+    } else {
+        return [];
+    }
 }
 
 /**
@@ -386,8 +387,13 @@ export function* generateNodeAlignmentConstraints(
                 q.x += v.shape.support(new Vector(0, -1)).sub(v.center).x;
                 break;
         }
-        const newGrads = constrainDistance(p, q, '=', 0, { axis: [-y, x] });
-        yield newGrads.map((grad) => new Gradient(grad.point === p ? u.center : v.center, grad.grad));
+        const grads = constrainDistance(p, q, '=', 0, { axis: [-y, x] });
+        if(grads.length === 0) {
+            yield [];
+        } else {
+            const [pgrad, qgrad] = grads;
+            yield [new Gradient(u.center, pgrad.grad), new Gradient(v.center, qgrad.grad)];
+        }
     }
 }
 
@@ -411,20 +417,15 @@ export function constrainNodeDistance(
         masses: [number, number],
         axis?: [number, number]
     }> = {},
-): Gradient[] {
+): [Gradient, Gradient] | [] {
     // TODO: Integrate fixed;
     const supportAxis = (new Vector()).subVectors(v.center, u.center);
     const us = u.shape.support(supportAxis);
     const vs = v.shape.support(supportAxis.negate());
-    return constrainDistance(us, vs, op, distance, { axis, masses }).map((grad) => {
-        if (grad.point === us) {
-            return new Gradient(u.center, grad.grad);
-        }
-        else if (grad.point === vs) {
-            return new Gradient(v.center, grad.grad);
-        }
-        throw Error('Gradient for unknown point returned by `constrainOffset()`.');
-    });
+    const grads = constrainDistance(us, vs, op, distance, { axis, masses });
+    if(grads.length === 0) return [];
+    const [ugrad, vgrad] = grads;
+    return [new Gradient(u.center, ugrad.grad), new Gradient(v.center, vgrad.grad)];
 }
 
 /**
@@ -442,20 +443,15 @@ export function constrainNodeOffset(
     offset: number, 
     direction: [number, number], 
     { masses = [1, 1] }: Partial<{ masses: [number, number] }> = {}
-): Gradient[] {
+): [Gradient, Gradient] | [] {
     // TODO: Integrate fixed;
     const axis = new Vector(...direction);
     const us = u.shape.support(axis);
     const vs = v.shape.support(axis.negate());
-    return constrainOffset(us, vs, op, offset, direction, { masses }).map((grad) => {
-        if (grad.point === us) {
-            return new Gradient(u.center, grad.grad);
-        }
-        else if (grad.point === vs) {
-            return new Gradient(v.center, grad.grad);
-        }
-        throw Error('Gradient for unknown point returned by `constrainOffset()`.');
-    });
+    const grads = constrainOffset(us, vs, op, offset, direction, { masses })
+    if(grads.length === 0) return [];
+    const [ugrad, vgrad] = grads;
+    return [new Gradient(u.center, ugrad.grad), new Gradient(v.center, vgrad.grad)];
 }
 
 /**

@@ -22,6 +22,7 @@ export function* generateSpringForces(
     config: Partial<{ maxAttraction: number }> = {},
 ) {
     const { maxAttraction = Infinity } = config;
+    // TODO: Replace idealLength and shortestPath, with idealLength: (u, v) => number | undefined.
     const visited = new Set();
     for(let u of storage.nodes()) {
         visited.add(u);
@@ -39,12 +40,15 @@ export function* generateSpringForces(
             const axis = (new Vector()).subVectors(v.center, u.center);
             const actualDistance = axis.length() > 0 ? u.shape.boundary(axis).distanceTo(v.shape.boundary(axis.negate())) : 0;
             
-            if(storage.existsEdge(u, v, true) && actualDistance > idealDistance && !storage.hasAncestor(u, v) && !storage.hasAncestor(v, u)) {
-                // Attractive force between edges if too far.
+            if(actualDistance > idealDistance && storage.existsEdge(u, v, true) && !storage.hasAncestorOrDescendant(u, v)) {
+                // Attractive force between nodes with edges if too far. If one of them
+                // contains the other, no force is exerted (between their centers).
                 const delta = Math.min(actualDistance - idealDistance, maxAttraction);
                 yield nudgePair(u.center, v.center, [-wu*delta, -wv*delta]);
             } else if(actualDistance < idealDistance && siblings.has(v)) {
-                // Repulsive force between node pairs if too close.
+                // Repulsive force between node pairs if too close. Only siblings can repel each
+                // other, else parents will repel their children, and children will be repelled by
+                // the rest of graph rather than being isolated by the parent.
                 const delta = (idealDistance - actualDistance) / Math.pow(uvPath, 2);
                 yield nudgePair(u.center, v.center, [wu*delta, wv*delta]);
             }
