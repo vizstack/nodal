@@ -6,10 +6,13 @@ route: /api
 # API
 
 import IFrame from 'react-iframe-resizer-super';
+import { Link } from 'gatsby';
 
 <IFrame
     iframeResizerOptions={{ checkOrigin: false }}
-    iframeResizerUrl="/iframe-resizer.js"
-    src="typedoc/index.html"
+    iframeResizerUrl="/nodal/iframe-resizer.js"
+    src="/nodal/typedoc/index.html"
     style={{ width: '100%', minHeight: 600 }}
 />
+
+<Link to="typedoc/index.html">View API</Link>

@@ -9,9 +9,10 @@
     "start": "npm run develop",
     "develop": "gatsby develop",
     "prebuild": "npm run clean",
+    "prebuild:noprefix": "npm run clean",
     "build": "gatsby build --prefix-paths",
     "build:noprefix": "gatsby build",
-    "serve": "gatsby serve",
+    "serve": "gatsby serve --prefix-paths",
     "clean": "rimraf public .docz .cache",
     "format": "prettier --write src/**/*.{js,jsx}",
     "test": "echo \"Write tests! -> https://gatsby.dev/unit-testing\""

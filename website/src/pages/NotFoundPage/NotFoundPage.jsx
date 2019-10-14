@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "gatsby";
 
 // @material-ui/core components
 import withStyles from "@material-ui/core/styles/withStyles";
@@ -47,7 +48,9 @@ class NotFoundPage extends React.Component {
                   We can't seem to find the page you're looking for.
                 </h3>
                 <br/>
-                <Button color="primary" href="/">Go To Home</Button>
+                <Link to='/'>
+                  <Button color="primary">Return To Home</Button>
+                </Link>
               </GridItem>
             </GridContainer>
           </div>
