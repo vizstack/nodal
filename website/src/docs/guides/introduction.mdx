@@ -5,9 +5,45 @@ menu: Guides
 ---
 
 # Introduction
-This is a test markdown file.
 
-> Hello
+Nodal is a powerful open-source library for graph layout. It enables you to start building beautiful graphs immediately, or configure your own algorithm for any use case.
 
-> # Hello
-> There
+## Why?
+
+There are plenty of graph layout libraries out there, why build another one? That's what we thought too when we first started working on our graph-heavy a project: one that required visualizing complex software structures like dependencies and computation graphs. But as we'd learn soon enough, there are many problems with existing libraries:
+
+- Simple layouts only.
+- Weird node/edge model.
+- Monolithic algorithms.
+- Hard to tune aesthetics.
+- Crappy implementation.
+- Costly.
+
+## Philosophy
+
+- **Composable**:
+Nodal allows you to build graph layouts by assembling small, predictable pieces (like points, forces, and constraints) into more complex structures and behaviors.
+
+- **Hackable**:
+Nodal is designed with an appreciation of the diversity of graph layout needs. Its elegant, well-documented abstractions are easy to extend or replace for domain-specific applications.
+
+- **Intuitive**:
+Nodal is based on gradient-descent rather than the inscrutable algorithms of traditional layout. This allows you to leverage physical and geometric intuitions while tuning your graphs.
+
+## Features
+For graph designers:
+- Compound nodes
+- Different shapes
+- Named ports
+- Edge angle snap
+- Multidirectional flow
+- Non-overlap constraints
+- Constraints, e.g. alignment, distance
+- Animation/interaction hooks
+
+For algorithm builders:
+- Small, composable abstractions.
+- Layered architecture.
+- Elegant, well-documented code.
+- Open-source with MIT License.
+
