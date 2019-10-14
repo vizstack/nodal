@@ -159,8 +159,10 @@ export class Rectangle extends Shape {
             box.union(new Box2(new Vector(x, y), new Vector(X, Y)));
         });
         box.expandByScalar(offset);
+        const size = new Vector();
+        box.getSize(size);
         const centerGrad = (new Vector()).subVectors(box.getCenter(new Vector()), this.center).multiplyScalar(masses.subshapes / (masses.shape + masses.subshapes));
-        const controlGrad = (new Vector()).subVectors(box.max, (new Vector()).addVectors(this.control, this.center));
+        const controlGrad = (new Vector()).subVectors(size.multiplyScalar(0.5), this.control);
         const subshapeGrad = (new Vector()).subVectors(box.getCenter(new Vector()), this.center).multiplyScalar(-masses.shape / (masses.shape + masses.subshapes));
         return [
             new Gradient(this.center, centerGrad),
