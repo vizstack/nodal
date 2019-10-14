@@ -18,7 +18,7 @@ export default {
           'Showcase',
           'Organic',
           'Hierarchical',
-          'Flowchart',
+          'Compgraph',
           'Metro',
         ],
       },
