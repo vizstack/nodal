@@ -19,7 +19,9 @@ export function* generateSpringForces(
     storage: StructuredStorage,
     idealLength: number | ((u: Node, v: Node) => number),
     shortestPath: (u: Node, v: Node) => number | undefined,
+    config: Partial<{ maxAttraction: number }> = {},
 ) {
+    const { maxAttraction = Infinity } = config;
     // TODO: Replace idealLength and shortestPath, with idealLength: (u, v) => number | undefined.
     const visited = new Set();
     for(let u of storage.nodes()) {
@@ -41,7 +43,7 @@ export function* generateSpringForces(
             if(actualDistance > idealDistance && storage.existsEdge(u, v, true) && !storage.hasAncestorOrDescendant(u, v)) {
                 // Attractive force between nodes with edges if too far. If one of them
                 // contains the other, no force is exerted (between their centers).
-                const delta = actualDistance - idealDistance;
+                const delta = Math.min(actualDistance - idealDistance, maxAttraction);
                 yield nudgePair(u.center, v.center, [-wu*delta, -wv*delta]);
             } else if(actualDistance < idealDistance && siblings.has(v)) {
                 // Repulsive force between node pairs if too close. Only siblings can repel each
