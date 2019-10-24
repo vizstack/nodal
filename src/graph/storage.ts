@@ -268,8 +268,33 @@ export class StructuredStorage extends BasicStorage {
         return false;
     }
     public connectedComponents(): Set<Set<Node>> {
-        // TODO
-        return new Set();
+        const components: Set<Set<Node>> = new Set();
+        const visited: Set<Node> = new Set();
+        const traverse = (u: Node, component: Set<Node>) => {
+            if(visited.has(u)) return;
+            component.add(u);
+            this.neighbors(u).forEach((neighbor) => traverse(neighbor, component));
+        };
+        this._nodes.forEach((n) => {
+            if(visited.has(n)) return;
+            const component: Set<Node> = new Set();
+            traverse(n, component);
+            components.add(component);
+        });
+        return components;
+    }
+    public topologicalSort(): Array<Node> {
+        // TODO: Deal with cycles?
+        // TODO: Deal with disjoint components?
+        const sort: Array<Node> = [];
+        const visited: Set<Node> = new Set();
+        const traverse = (u: Node) => {
+            if(visited.has(u)) return;
+            u.children.forEach((child) => traverse(child));
+            sort.push(u);
+        };
+        this._nodes.forEach((n) => traverse(n));
+        return sort.reverse();
     }
     public shortestPaths(directed: boolean = false): ((u: Node, v: Node) => number | undefined) {
         // Initialize distances with 1 for directly connected edges. If undefined, the distance is 
