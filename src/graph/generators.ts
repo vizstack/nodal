@@ -56,6 +56,63 @@ export function* generateSpringForces(
     }
 }
 
+export function* generateSpringForcesCompound(
+    storage: StructuredStorage,
+    idealLength: number | ((u: Node, v: Node) => number),
+    shortestPath: (u: Node, v: Node) => number | undefined,
+    config: Partial<{ maxAttraction: number }> = {},
+) {
+    const { maxAttraction = Infinity } = config;
+    // TODO: Replace idealLength and shortestPath, with idealLength: (u, v) => number | undefined.
+    
+    // Repulsive force between node pairs if too close. Only siblings can repel each
+    // other, else parents will repel their children, and children will be repelled by
+    // the rest of graph rather than being isolated by the parent.
+    const visited = new Set();
+    for(let u of storage.nodes()) {
+        visited.add(u);
+        for(let v of storage.siblings(u)) {
+            if(visited.has(v)) continue;
+            if(u.fixed && v.fixed) continue;
+            const [wu, wv] = [u.fixed ? 0 : 1, v.fixed ? 0 : 1];
+
+            const uvPath = shortestPath(u, v);
+            if(uvPath === undefined) continue; // Ignore disconnected components.
+            let idealDistance = (typeof idealLength === "function") ? uvPath * idealLength(u, v) : uvPath * idealLength;
+            const axis = (new Vector()).subVectors(v.center, u.center);
+            const actualDistance = axis.length() > 0 ? u.shape.boundary(axis).distanceTo(v.shape.boundary(axis.negate())) : 0;
+            
+            if(actualDistance < idealDistance) {
+                const delta = (idealDistance - actualDistance) / Math.pow(uvPath, 2);
+                yield nudgePair(u.center, v.center, [wu*delta, wv*delta]);
+            }
+        }
+    }
+
+    // Attractive force between nodes with edges (directly or indirectly between descendants) if
+    // too far. If one of them contains the other, no force between their centers is exerted.
+    for(let e of storage.edges()) {
+        const gda = storage.greatestDifferentAncestor(e.source.node, e.target.node);
+        if(gda === undefined) continue;
+        const [u, v] = gda;
+
+        if(u.fixed && v.fixed) continue;
+        const [wu, wv] = [u.fixed ? 0 : 1, v.fixed ? 0 : 1];
+
+        // TODO: Is this right to ignore? What is the meaning of shortestPath?
+        const uvPath = shortestPath(u, v);
+        if(uvPath === undefined) continue; // Ignore disconnected components.
+        let idealDistance = (typeof idealLength === "function") ? uvPath * idealLength(u, v) : uvPath * idealLength;
+        const axis = (new Vector()).subVectors(v.center, u.center);
+        const actualDistance = axis.length() > 0 ? u.shape.boundary(axis).distanceTo(v.shape.boundary(axis.negate())) : 0;
+
+        if(actualDistance > idealDistance) {
+            const delta = Math.min(actualDistance - idealDistance, maxAttraction);
+            yield nudgePair(u.center, v.center, [-wu*delta, -wv*delta]);
+        }
+    }
+}
+
 /**
  * Generates attractive forces encouraging edges to be no fthe ideal length and repulsive forces between
  * unconnected nodes proportional to their shortest path length. There are no forces generated

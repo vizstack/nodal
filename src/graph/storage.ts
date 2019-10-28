@@ -214,6 +214,25 @@ export class StructuredStorage extends BasicStorage {
         }
         return undefined;
     }
+    public greatestDifferentAncestor(u: Node, v: Node): [Node, Node] | undefined {
+        const lca = this.leastCommonAncestor(u, v);
+        if(lca === u || lca === v) return undefined;  // If ancestor/descendant of each other.
+        
+        // Advance uptr/vptr until right before the lca or have reached roots.
+        let uptr = u, vptr = v;
+        while(true) {
+            const uparent = this._parents.get(uptr);
+            if(uparent === lca || uparent === undefined) break;
+            uptr = uparent;
+        }
+        while(true) {
+            const vparent = this._parents.get(vptr);
+            if(vparent === lca || vparent === undefined) break;
+            vptr = vparent;
+        }
+
+        return [uptr, vptr];
+    }
     
 
     // =============================================================================================
