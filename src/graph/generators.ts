@@ -165,9 +165,10 @@ export function* generateCompactnessForces(
     storage: Storage,
     strength: number,
 ) {
+    // TODO: Based on shape preserveSize, preserveWidth, preserveHeight
     for(let u of storage.nodes()) {
         for(let child of u.children) {
-            yield nudgePair(u.center, child.center, -strength*(u.center.distanceTo(child.center)));
+            yield nudgePair(u.center, child.center, -strength);
         };
     }
 }

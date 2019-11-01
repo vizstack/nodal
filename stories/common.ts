@@ -11,6 +11,7 @@ import {
     BasicOptimizer,
     EnergyOptimizer,
     generateSpringForces,
+    generateSpringForcesCompound,
     generateCompactnessForces,
 } from '../src';
 
@@ -21,6 +22,7 @@ export function makeLayout(
         steps = 200,
         idealLength = 30,
         compactness = 10,
+        padding = 0,
         forceIterations = 1,
         constraintIterations = 3,
         extraForces = undefined,
@@ -29,6 +31,7 @@ export function makeLayout(
         steps: number,
         idealLength: number,
         compactness: number,
+        padding: number,
         forceIterations: number,
         constraintIterations: number,
         extraForces?: (storage: Storage, step: number, iter: number) => IterableIterator<Gradient[]>
@@ -50,7 +53,7 @@ export function makeLayout(
             iterations: forceIterations,
             optimizer: forceOptimizer,
             generator: function* (storage, step, iter) {
-                yield* generateSpringForces(
+                yield* generateSpringForcesCompound(
                     storage as StructuredStorage,
                     idealLength,
                     shortestPath,
@@ -64,7 +67,7 @@ export function makeLayout(
             optimizer: constraintOptimizer,
             generator: function* (storage, step, iter) {
                 for (let u of storage.nodes()) {
-                    yield* generateNodeChildrenConstraints(u);
+                    yield* generateNodeChildrenConstraints(u, padding);
                     yield* generateNodePortConstraints(u);
                 }
                 if(extraConstraints) yield* extraConstraints(storage, step, iter);

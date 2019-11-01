@@ -69,16 +69,13 @@ export class StagedLayout extends Layout {
         const { onStart, onEnd } = this;
         if (!onStart(this.storage, this._finishedSteps)) return;
         while (this._finishedSteps < this._totalSteps) {
-            this._finishedSteps += 1;
-            if (this.step() === false) {
-                // If break out early, do not trigger `onEnd`.
-                return;
-            }
+            const proceed = this.step();
+            // If break out early, do not trigger `onEnd`.
+            if (!proceed) return;
         }
         onEnd(this.storage, this._finishedSteps);
     }
 
-    // Manually stepping does not contribute to counter.
     public step(): boolean {
         const { onStep } = this;
         for (let stage of this.stages) {
@@ -94,6 +91,7 @@ export class StagedLayout extends Layout {
                 stage.optimizer.update();
             }
         }
+        this._finishedSteps += 1;
         return onStep(this.storage, this._finishedSteps);
     }
 }

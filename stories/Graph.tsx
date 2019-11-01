@@ -3,6 +3,7 @@ import { Node, Edge, Storage, StagedLayout } from '../src/graph';
 import { Vector } from '../src/optim';
 
 type GraphProps = {
+    /** The layout to run. */
     layout: StagedLayout;
 
     /** Whether to run animation during layout process. */
@@ -17,6 +18,9 @@ type GraphProps = {
 
     /** Minimum graph size. */
     size?: [number, number];
+
+    /** Postprocessing function run each time layout completes. */
+    postprocess: (storage: Storage) => void;
 };
 
 type GraphState = {
@@ -42,9 +46,10 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         interactive: false,
         size: [500, 500],
     };
+
     constructor(props: GraphProps) {
         super(props);
-        const { layout, animated} = this.props;
+        const { layout, animated, postprocess } = this.props;
         this.state = {
             nodes: layout.storage.nodes(),
             edges: layout.storage.edges(),
@@ -54,6 +59,20 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         if(animated) {
             // Animated graphs should repeatedly stop after after every step in order to give React
             // time to rerender. This will continue until all iterations are done.
+            layout.onEnd = (storage, step) => {
+                postprocess(storage);
+                this.forceUpdate();
+
+                // Remove call to `start` after initial layout is finished.
+                layout.onStep = (storage) => {
+                    this.setState({
+                        nodes: storage.nodes(),
+                        edges: storage.edges(),
+                        bounds: storage.bounds(),
+                    });
+                    return false;
+                };
+            }
             layout.onStep = (storage) => {
                 this.setState({
                     nodes: storage.nodes(),
@@ -67,6 +86,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
             // Unanimated graphs should only update state after the initial layout ends, and on
             // every step afterwards, when the user manipulates the graph.
             layout.onEnd = (storage) => {
+                postprocess(storage);
                 this.setState({
                     nodes: storage.nodes(),
                     edges: storage.edges(),
@@ -128,9 +148,14 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     }
 
     doLayout(steps: number) {
-        if(steps <= 0) return;
+        const { layout, postprocess } = this.props;
+        if(steps <= 0) {
+            postprocess(layout.storage);
+            this.forceUpdate();
+            return;
+        }
         setTimeout(() => {
-            this.props.layout.step();
+            layout.step();
             this.forceUpdate();
             if(this.state.drag === undefined) {
                 this.doLayout(steps-1);
@@ -208,7 +233,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                                 pointerEvents: 'none',
                                 userSelect: 'none',
                             }}>
-                            {node.id.substring(1)}
+                            {node.id}
                         </text>
                         {Object.entries(node.ports).map(([name, port]) => (
                             name.startsWith('_') ? null : (
@@ -276,7 +301,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                                 pointerEvents: 'none',
                                 userSelect: 'none',
                             }}>
-                            {node.id.substring(1)}
+                            {node.id.startsWith('n') ? node.id.substring(1) : node.id}
                         </text>
                         {Object.entries(node.ports).map(([name, port]) => (
                             name.startsWith('_') ? null : (
@@ -299,12 +324,12 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         for(let edge of edges) {
             const start = edge.path[0];
             const end = edge.path[edge.path.length - 1];
-            if (edge.source.node.ports[edge.source.port].location === 'center') {
-                start.copy(edge.source.node.shape.boundary((new Vector()).subVectors(end, start)));
-            }
-            if (edge.target.node.ports[edge.target.port].location === 'center') {
-                end.copy(edge.target.node.shape.boundary((new Vector()).subVectors(start, end)));
-            }
+            // if (edge.source.node.ports[edge.source.port].location === 'center') {
+            //     start.copy(edge.source.node.shape.boundary((new Vector()).subVectors(end, start)));
+            // }
+            // if (edge.target.node.ports[edge.target.port].location === 'center') {
+            //     end.copy(edge.target.node.shape.boundary((new Vector()).subVectors(start, end)));
+            // }
             edgeComponents.push(
                 <g key={edge.id} id={edge.id}>
                     <path

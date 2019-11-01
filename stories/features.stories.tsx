@@ -2,9 +2,9 @@ import React from 'react';
 import { storiesOf } from '@storybook/react';
 import { number, boolean } from '@storybook/addon-knobs';
 
-import { kGraphFive } from './schemas-five';
 import {
     NodeId,
+    Node,
     NodeSchema,
     EdgeSchema,
     generateNodeAlignmentConstraints,
@@ -14,10 +14,15 @@ import {
     constrainNodeNonoverlap,
     constrainOffset,
     nudgeAngle,
+    StructuredStorage,
+    Storage,
 } from '../src';
 import { makeLayout } from './common';
 import { Graph } from './Graph';
 import { kGraphTwo } from './schemas-two';
+import { kGraphFive } from './schemas-five';
+import { kGraphGrid } from './schemas-grid';
+import { OrthogonalRouter } from '../src/graph/router';
 
 
 
@@ -49,12 +54,25 @@ storiesOf('features', module)
         );
         return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
-    .add('disconnected components', () => {
+    .add('disconnected w/ non-overlap', () => {
         const idealLength = number('ideal length', 30);
+        const margin = number('margin', 0);
         const layout = makeLayout(
             kGraphFive.nodesUnequal,
             [],
-            { idealLength },
+            { idealLength,
+                extraConstraints: function* (storage) {
+                    const visited: Set<Node> = new Set();
+                    for(let u of storage.nodes()) {
+                        visited.add(u);
+                        for(let v of storage.nodes()) {
+                            if(!visited.has(v)) {
+                                yield constrainNodeNonoverlap(u, v, margin);
+                            }
+                        }
+                    }
+                }
+            },
         );
         return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
@@ -227,4 +245,39 @@ storiesOf('features', module)
             },
         );
         return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
+    })
+    .add('edge routing', () => {
+        const idealLength = number('ideal length', 30);
+        const padding = number('padding', 10);
+        const margin = number('margin', 10);
+        // TODO: Fix force model causing repulsion in shapes.
+        // TODO: Why do shapes expand on both sides?
+        const layout = makeLayout(
+            kGraphGrid.nodes,
+            kGraphGrid.edges,
+            { idealLength, compactness: 1, padding, constraintIterations: 10,
+              extraConstraints: function* (storage, step) {
+                  const elems = storage as StructuredStorage;
+                if(step > 30) {
+                    const visited: Set<Node> = new Set();
+                    for(let u of elems.nodes()) {
+                        visited.add(u);
+                        for(let v of elems.nodes()) {
+                            if(!visited.has(v) && !elems.hasAncestorOrDescendant(u, v)) {
+                                yield constrainNodeNonoverlap(u, v, margin);
+                            }
+                        }
+                    }
+                }
+              }
+                
+            },
+        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive
+            postprocess={(storage) => {
+                console.log("postprocess called");
+                const router = new OrthogonalRouter(storage);
+                router.route();
+            }}
+        />;
     });
