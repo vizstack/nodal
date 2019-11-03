@@ -70,9 +70,11 @@ export function makeLayout(
             generator: function* (storage, step, iter) {
                 for (let u of storage.nodes()) {
                     yield* generateNodeChildrenConstraints(u, padding);
-                    yield* generateNodePortConstraints(u);
                 }
                 if(extraConstraints) yield* extraConstraints(storage, step, iter);
+                for (let u of storage.nodes()) {
+                    yield* generateNodePortConstraints(u);
+                }
             }
         }
     );
