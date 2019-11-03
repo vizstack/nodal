@@ -1,7 +1,7 @@
 import { Vector, Gradient } from '../optim';
 import { Node } from './elements';
 import { Storage, StructuredStorage } from './storage';
-import { nudgePair } from './gradients';
+import { nudgePair, nudgePoint } from './gradients';
 
 /**
  * Generates (1) attractive forces encouraging connected nodes to be no farther than their ideal
@@ -170,6 +170,20 @@ export function* generateCompactnessForces(
         for(let child of u.children) {
             yield nudgePair(u.center, child.center, -strength);
         };
+    }
+}
+
+/**
+ * Generates forces tha pull roots towards the origin.
+ * @param storage 
+ * @param strength 
+ */
+export function* generateCenteringForces(
+    storage: StructuredStorage,
+    strength: number,
+) {
+    for(let r of storage.roots()) {
+        yield nudgePoint(r.center, strength, [-r.center.x, -r.center.y]);
     }
 }
 

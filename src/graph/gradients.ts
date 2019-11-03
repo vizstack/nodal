@@ -335,8 +335,14 @@ export function constrainNodeNonoverlap(
     // TODO: Rewrite using collision checker
     const { x: ux, y: uy, X: uX, Y: uY, width: uwidth, height: uheight } = u.shape.bounds();
     const { x: vx, y: vy, X: vX, Y: vY, width: vwidth, height: vheight } = v.shape.bounds();
-    const ubounds = new Box2(new Vector(ux, uy), new Vector(uX, uY));
-    const vbounds = new Box2(new Vector(vx, vy), new Vector(vX, vY));
+    const ubounds = new Box2(
+        new Vector(ux - margin, uy - margin),
+        new Vector(uX + margin, uY + margin),
+    );
+    const vbounds = new Box2(
+        new Vector(vx - margin, vy - margin),
+        new Vector(vX + margin, vY + margin),
+    );
     if (!ubounds.intersectsBox(vbounds)) return [];
     const xgrad = constrainDistance(u.center, v.center, ">=", (uwidth + vwidth) / 2 + 2 * margin, { axis: [1, 0] });
     const ygrad = constrainDistance(u.center, v.center, ">=", (uheight + vheight) / 2 + 2 * margin, { axis: [0, 1] });

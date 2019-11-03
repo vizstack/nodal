@@ -13,6 +13,7 @@ import {
     generateSpringForces,
     generateSpringForcesCompound,
     generateCompactnessForces,
+    generateCenteringForces,
 } from '../src';
 
 export function makeLayout(
@@ -36,7 +37,7 @@ export function makeLayout(
         constraintIterations: number,
         extraForces?: (storage: Storage, step: number, iter: number) => IterableIterator<Gradient[]>
         extraConstraints?: (storage: Storage, step: number, iter: number) => IterableIterator<Gradient[]>
-    }>
+    }> = {}
 ): StagedLayout {
     const { nodes, edges } = fromSchema(nodeSchemas, edgeSchemas);
     const storage = new StructuredStorage(nodes, edges);
@@ -58,6 +59,7 @@ export function makeLayout(
                     idealLength,
                     shortestPath,
                 );
+                yield* generateCenteringForces(storage as StructuredStorage, compactness);
                 yield* generateCompactnessForces(storage, compactness);
                 if(extraForces) yield* extraForces(storage, step, iter);
             }

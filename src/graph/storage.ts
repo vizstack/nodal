@@ -233,6 +233,21 @@ export class StructuredStorage extends BasicStorage {
 
         return [uptr, vptr];
     }
+
+    /**
+     * Return nodes in order from back-to-front, i.e. compound node roots to simple node leaves.
+     */
+    public hierarchicalSort(): Array<Node> {
+        const sort: Array<Node> = [];
+        const visited: Set<Node> = new Set();
+        const traverse = (u: Node) => {
+            if(visited.has(u)) return;
+            u.children.forEach((child) => traverse(child));
+            sort.push(u);
+        };
+        this._nodes.forEach((n) => traverse(n));
+        return sort.reverse();
+    }
     
 
     // =============================================================================================
@@ -309,7 +324,8 @@ export class StructuredStorage extends BasicStorage {
         const visited: Set<Node> = new Set();
         const traverse = (u: Node) => {
             if(visited.has(u)) return;
-            u.children.forEach((child) => traverse(child));
+            const edgesFrom = this._edgesFrom.get(u);
+            if(edgesFrom) edgesFrom.forEach((edge) => traverse(edge.target.node));
             sort.push(u);
         };
         this._nodes.forEach((n) => traverse(n));
