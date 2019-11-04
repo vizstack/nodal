@@ -17,11 +17,12 @@ import {
     StructuredStorage,
     Storage,
 } from '../src';
-import { makeLayout } from './common';
+import { makeLayout, dagLayout } from './common';
 import { Graph } from './Graph';
 import { kGraphTwo } from './schemas-two';
 import { kGraphFive } from './schemas-five';
 import { kGraphGrid } from './schemas-grid';
+import { nodeSchemas as AttentionNodeSchemas, edgeSchemas as AttentionEdgeSchemas } from './aiayn';
 import { OrthogonalRouter } from '../src/graph/router';
 
 
@@ -244,6 +245,10 @@ storiesOf('features', module)
               }
             },
         );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
+    })
+    .add('aiayn', () => {
+        const layout = dagLayout(AttentionNodeSchemas as any, AttentionEdgeSchemas);
         return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('edge routing', () => {
