@@ -276,7 +276,7 @@ storiesOf('features', module)
         return <Graph key={`${Math.random()}`} layout={layout} animated interactive
             postprocess={(storage) => {
                 console.log("postprocess called");
-                const router = new OrthogonalRouter(storage);
+                const router = new OrthogonalRouter(storage as StructuredStorage);
                 router.route();
             }}
         />;

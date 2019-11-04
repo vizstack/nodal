@@ -7,6 +7,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
+    "fastpriorityqueue": "^0.6.3",
     "lodash": "^4.17.15",
     "sat": "^0.8.0",
     "seedrandom": "^3.0.3",
