@@ -265,22 +265,20 @@ export function* generateNodePortConstraints(
         // Attract ports on boundary towards side center.
         switch (side) {
             case 'north':
-                // Scale the boundary coordinates by a close-to-1 constant so that the ports do not exactly
-                // align with them and cause jitter
-                yield nudgePair(new Vector(cx, y * 0.99), point, [0, -centering]);
                 yield constrainOffset(u.center, point, "=", -height/2, [0, 1], {masses: kPortMasses});
+                yield nudgePoint(point, centering * (u.center.x - point.x), [1, 0]);
                 break;
             case 'south':
-                yield nudgePair(new Vector(cx, Y * 0.99), point, [0, -centering]);
                 yield constrainOffset(u.center, point, "=", height/2, [0, 1], {masses: kPortMasses});
+                yield nudgePoint(point, centering * (u.center.x - point.x), [1, 0]);
                 break;
             case 'west':
-                yield nudgePair(new Vector(x * 0.99, cy), point, [0, -centering]);
                 yield constrainOffset(u.center, point, "=", -width/2, [1, 0], {masses: kPortMasses});
+                yield nudgePoint(point, centering * (u.center.y - point.y), [0, 1]);
                 break;
             case 'east':
-                yield nudgePair(new Vector(X * 0.99, cy), point, [0, -centering]);
                 yield constrainOffset(u.center, point, "=", width/2, [1, 0], {masses: kPortMasses});
+                yield nudgePoint(point, centering * (u.center.y - point.y), [0, 1]);
                 break;
         }
 
