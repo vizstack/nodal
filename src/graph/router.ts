@@ -4,16 +4,22 @@ import { Vector } from '../optim';
 import PriorityQueue from 'fastpriorityqueue';
 
 type RouteVertex = {
+    /** Horizontal location of vertex. */
     x: number,
+    
+    /** Vertical location of vertex. */
     y: number,
+
+    /** Immediate neighbor vertices on grid. */
     neighbors: {
         north?: RouteVertex,
         south?: RouteVertex,
         east?: RouteVertex,
         west?: RouteVertex,
     },
+
+    /** Frontmost node that contains this vertex, if any. */
     node?: Node,
-    port?: Vector,
 };
 type RoutePartial = {
     /** Latest node on partial path. */
@@ -47,6 +53,13 @@ type CardinalDirection = "north" | "south" | "east" | "west";
 const directionRight = { north: "east", east: "south", south: "west", west: "north" };
 const directionLeft = { north: "west", east: "north", south: "east", west: "south" };
 const directionReverse = { north: "south", east: "west", south: "north", west: "east" };
+function boundsContain(
+    bounds: { x: number, y: number, X: number, Y: number },
+    x: number,
+    y: number,
+){
+    return bounds.x <= x && x <= bounds.X && bounds.y <= y && y <= bounds.Y;
+}
 function manhattanDistance(u: RouteVertex, v: RouteVertex) {
     return Math.abs(u.x - v.x) + Math.abs(u.y - v.y);
 } 
@@ -89,26 +102,30 @@ export class OrthogonalRouter {
         // This code implements the algorithms described in "Orthogonal Connector Routing"
         // (Wybrow et al, 2009). It uses a 3-phase approach:
         // (1) an orthogonal visibility graph is constructed by intersecting "interesting"
-        //     horizontal/vertical line segments.
+        //     horizontal/vertical line segments
         // (2) the optimal routes are found using A* search
         // (3) any overlapping routes are ordered and nudged apart
-        if(Array.from(this.storage.nodes()).length === 0) return;
-        const graph = this._getVisibilityGraph();        
-        const routes = this._getOptimalRoutes(graph);
-        // const nudged = this._getNudgedRoutes(optimal);
-        
-        this.storage.edges().forEach((edge) => {
-            const route = routes.get(edge);
-            if(!route) return;
-            edge.path = route.map((v) => v.port || new Vector(v.x, v.y));
-        })
-    }
+        //
+        // Design decisions:
+        // (1) Ports at 'center' are treated specially because the corresponding lines need
+        //     to emanate in both directions, along both vertical and horizontal axes. Other port 
+        //     lines only emanate in a single direction along the axis perpendicular to the side.
+        // (2) Edges with endpoints at ports on 'boundary' keep the same port, rather than be
+        //     retargeted to a more convenient side. This is because: (a) multiple edges may target
+        //     the same port, so routing cannot proceed independently, (b) ports can't be moved
+        //     as that would break their constraint on the shape boundary.
 
-    protected _getVisibilityGraph(): RouteVertex[] {
-        console.log("Get visibility graph");
+        if(Array.from(this.storage.nodes()).length === 0) return;
+
+        // =========================================================================================
+        // Phase 1: Get visibility graph.
+
+        console.log("Phase 1: Get visibility graph.");
+        
+        const vertices: RouteVertex[] = [];
+        const portToVertex: Map<Vector, RouteVertex> = new Map();
         const hlines: HorizontalSegment[] = [];
         const vlines: VerticalSegment[] = [];
-        const vertices: RouteVertex[] = [];
 
          // Add graph bound lines.
         const graphBounds = {
@@ -129,22 +146,14 @@ export class OrthogonalRouter {
         vlines.push({ x: graphBounds.x, y0: graphBounds.y, y1: graphBounds.Y, vertices: [] });
         vlines.push({ x: graphBounds.X, y0: graphBounds.y, y1: graphBounds.Y, vertices: [] });
 
-        // Add node extent and midpoint lines.
         for(let u of this.storage.nodes()) {
+            // Add node bound lines.
             const { x, X, y, Y } = u.shape.bounds();
-            const center = { x: (x+X)/2, y: (y+Y)/2, neighbors: {}, node: u, port: u.center };
-            vertices.push(center);
             hlines.push({
                 y: y - this._config.nodeMargin,
                 x0: graphBounds.x,
                 x1: graphBounds.X,
                 vertices: [],
-            });
-            hlines.push({
-                y: (y + Y) / 2,
-                x0: graphBounds.x,
-                x1: graphBounds.X,
-                vertices: [center],
             });
             hlines.push({
                 y: Y + this._config.nodeMargin,
@@ -159,20 +168,58 @@ export class OrthogonalRouter {
                 vertices: [],
             });
             vlines.push({
-                x: (x + X) / 2,
-                y0: graphBounds.y,
-                y1: graphBounds.Y,
-                vertices: [center],
-            });
-            vlines.push({
                 x: X + this._config.nodeMargin,
                 y0: graphBounds.y,
                 y1: graphBounds.Y,
                 vertices: [],
             });
+
+            // Add node midpoint lines.
+            const cx = u.center.x, cy = u.center.y;
+            const center: RouteVertex = { x: cx, y: cy, neighbors: {}, node: u };
+            vertices.push(center);
+            hlines.push({
+                y: cy,
+                x0: graphBounds.x,
+                x1: graphBounds.X,
+                vertices: [center],
+            });
+            vlines.push({
+                x: cx,
+                y0: graphBounds.y,
+                y1: graphBounds.Y,
+                vertices: [center],
+            });
+            portToVertex.set(u.center, center);
+
+            // Add port lines.
+            Object.values(u.ports).forEach(({ point, location }) => {
+                if(location === "center") {
+                    // For all 'center' ports, add to existing center vertex.
+                    portToVertex.set(point, center);
+                } else {
+                    // For all other ports, create new vertex and line emanating outwards.
+                    // TODO: Make emanate outwards.
+                    const v: RouteVertex = { x: point.x, y: point.y, neighbors: {}, node: u };
+                    vertices.push(v);
+                    hlines.push({
+                        y: point.y,
+                        x0: graphBounds.x,
+                        x1: graphBounds.X,
+                        vertices: [v],
+                    });
+                    vlines.push({
+                        x: point.x,
+                        y0: graphBounds.y,
+                        y1: graphBounds.Y,
+                        vertices: [v],
+                    });
+                    portToVertex.set(point, v);
+                }
+            });
         }
 
-        // Add alley midpoint lines.
+        // // Add alley midpoint lines.
         // const visited: Set<Node> = new Set();
         // for(let u of this.storage.nodes()) {
         //     visited.add(u);
@@ -223,9 +270,8 @@ export class OrthogonalRouter {
         //         }
         //     }
         // }
-
-        // DONE?: Add midpoint lines -> 'center' ports.
-        // TODO: Add port lines --> 'side'/'north'/... ports.
+        // TODO: Prioritize alleys.
+        // TODO: Alley computation is too expensive rn.
         // TODO: Cut off rays at obstacles / edge of graph.
        
         // Intersect lines and assign to nodes.
@@ -238,8 +284,7 @@ export class OrthogonalRouter {
 
                 // Assign vertex to frontmost node that contains it.
                 for(let u of frontToBack) {
-                    const { x, X, y, Y } = u.shape.bounds();
-                    if(x <= vertex.x && vertex.x <= X && y <= vertex.y && vertex.y <= Y) {
+                    if(boundsContain(u.shape.bounds(), vertex.x, vertex.y)) {
                         vertex.node = u;
                         break;
                     }
@@ -269,29 +314,39 @@ export class OrthogonalRouter {
             }
         });
 
-        return vertices;
-    }
+        console.log(vertices, portToVertex);
 
-    protected _getOptimalRoutes(graph: RouteVertex[]): Map<Edge, RouteVertex[]> {
-        console.log("Get optimal routes", graph);
+        // =========================================================================================
+        // Phase 2: Get optimal routes.
+
+        console.log("Phase 2: Get optimal routes.");
+
         const routes: Map<Edge, RouteVertex[]> = new Map();
+
         this.storage.edges().forEach((edge) => {
-            // Routes may only pass through direct ancestors of the source/target.
+            // Routes may only pass through vertices that are attached to (1) direct ancestors of
+            // the source/target node, or (2) nodes that contain the source/target point.
             const traversableNodes: Set<Node> = new Set([
                 edge.source.node,
                 edge.target.node,
                 ...this.storage.ancestors([edge.source.node, edge.target.node]),
+                ...this.storage.nodes().filter((n) => {
+                    const nbounds = n.shape.bounds();
+                    return (
+                        boundsContain(nbounds, edge.source.point.x, edge.source.point.y) ||
+                        boundsContain(nbounds, edge.target.point.x, edge.target.point.y)
+                    );
+                })
             ]);
-            function isTraversable(vertex: RouteVertex) {
+            function isVertexTraversable(vertex: RouteVertex) {
                 return vertex.node === undefined || traversableNodes.has(vertex.node)
             }
-            const traversableVertices = graph.filter(isTraversable);
+            const traversableVertices = vertices.filter(isVertexTraversable);
             const traversableVerticesIdx = new Map(traversableVertices.map((vertex, idx) => [vertex,idx]));
 
             // Perform A* search for optimal routes.
-            // TODO: Change start/end find methodology.
-            const start = traversableVertices.find((vertex) => vertex.node === edge.source.node);
-            const end = traversableVertices.find((vertex) => vertex.node === edge.target.node);
+            const start = portToVertex.get(edge.source.point);
+            const end = portToVertex.get(edge.target.point);
             if(start === undefined || end === undefined) throw new Error("Vertex not found");
 
             const cache = new Map<string, RoutePartial>();
@@ -326,7 +381,7 @@ export class OrthogonalRouter {
                 }
                 Object.entries(vertex.neighbors).forEach(([dir, neighbor]) => {
                     if(dir === directionReverse[direction]) return;
-                    if(neighbor === undefined || !isTraversable(neighbor)) return;
+                    if(neighbor === undefined || !isVertexTraversable(neighbor)) return;
                     const neighborKey = `${traversableVerticesIdx.get(neighbor)!}-${dir}`;
                     const neighborLength = manhattanDistance(vertex, neighbor);
                     const neighborBends = dir === direction ? 0 : 1;
@@ -336,6 +391,8 @@ export class OrthogonalRouter {
                     );
                     const existing = cache.get(neighborKey);
                     if(!existing || existing.cost > neighborCost) {
+                        // For every (vertex, direction) tuple, ensure only the one with the lowest
+                        // cost stays in frontier open set.
                         cache.set(neighborKey, {
                             vertex: neighbor,
                             direction: dir as CardinalDirection,
@@ -348,12 +405,32 @@ export class OrthogonalRouter {
                     }
                 })
             }
-            console.warn(`No route found for edge: ${edge.id}`);
+            console.warn(`No route found for edge: ${edge.id}`, );
         });
-        return routes;
-    }
 
-    protected _getNudgedRoutes() {
+        console.log(routes);
 
+        // =========================================================================================
+        // Phase 3: Get nudged routes.
+
+        // TODO
+
+        // =========================================================================================
+        // Phase 4: Convert routes to edge paths.
+        
+        this.storage.edges().forEach((edge) => {
+            const route = routes.get(edge);
+            if(!route) return;
+            edge.path = route.map((v) => {
+                // Keep original port endpoints and create new points for intermediate vertices.
+                if (portToVertex.get(edge.source.point) === v) {
+                    return edge.source.point;
+                } else if (portToVertex.get(edge.target.point) === v) {
+                    return edge.target.point;
+                } else {
+                    return new Vector(v.x, v.y);
+                }
+            });
+        })
     }
 }
