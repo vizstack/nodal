@@ -1,6 +1,12 @@
 import * as React from 'react';
 import { Node, Edge, Storage, StagedLayout } from '../src/graph';
 import { Vector } from '../src/optim';
+// @ts-ignore
+import { roundCorners } from 'svg-path-round-corners/dist/es6/index';
+// @ts-ignore
+import { parse } from 'svg-path-round-corners/dist/es6/parse';
+// @ts-ignore
+import { serialize } from 'svg-path-round-corners/dist/es6/serialize';
 
 type GraphProps = {
     /** The layout to run. */
@@ -36,6 +42,7 @@ type GraphState = {
     };
 };
 
+const kEdgeCurveRadius = 8;
 const kPortRadius = 2;
 const kAnimationTick = 0;
 const kLayoutSteps = 250;
@@ -322,18 +329,23 @@ export class Graph extends React.Component<GraphProps, GraphState> {
 
         const edgeComponents = [];
         for(let edge of edges) {
-            const start = edge.path[0];
-            const end = edge.path[edge.path.length - 1];
+            // const start = edge.path[0];
+            // const end = edge.path[edge.path.length - 1];
             // if (edge.source.node.ports[edge.source.port].location === 'center') {
             //     start.copy(edge.source.node.shape.boundary((new Vector()).subVectors(end, start)));
             // }
             // if (edge.target.node.ports[edge.target.port].location === 'center') {
             //     end.copy(edge.target.node.shape.boundary((new Vector()).subVectors(start, end)));
             // }
+            let path = 'M ' + edge.path.map(({ x, y }) => `${x} ${y}`).join(' L ');
+            if(path) {
+                path = serialize(roundCorners(parse(path), kEdgeCurveRadius));
+            }
+
             edgeComponents.push(
                 <g key={edge.id} id={edge.id}>
                     <path
-                        d={'M ' + edge.path.map(({ x, y }) => `${x} ${y}`).join(' L ')}
+                        d={path}
                         style={{
                             fill: 'none',
                             stroke: edgeColor(edge),

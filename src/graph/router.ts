@@ -34,6 +34,9 @@ type RoutePartial = {
     /** Bends so far in partial path. */
     bends: number,
 
+    /** Penalty so far in the partial path. */
+    penalty: number,
+
     /** Combined actual and expected (heuristic) cost of partial path. */
     cost: number,
     
@@ -63,8 +66,8 @@ function boundsContain(
 function manhattanDistance(u: RouteVertex, v: RouteVertex) {
     return Math.abs(u.x - v.x) + Math.abs(u.y - v.y);
 } 
-function costFn(length: number, bends: number) {
-    return length + 1000*bends;
+function costFn(length: number, bends: number, penalities: number) {
+    return length + 1000*bends + penalities;
 }
 function lengthHeuristic(vertex: RouteVertex, end: RouteVertex) {
     return manhattanDistance(vertex, end);
@@ -72,6 +75,17 @@ function lengthHeuristic(vertex: RouteVertex, end: RouteVertex) {
 function bendsHeuristic(vertex: RouteVertex, end: RouteVertex) {
     return 0; // TODO
 }
+
+/**
+ * Penalty per length of segment within source/target nodes. Encourages routes from ports to go
+ * around the node rather than through it.
+ */
+const kSourceTargetPenalty = 20;
+
+/**
+ * Penalty per length of segment overlapping with any node. Encourages routes to use blank areas.
+ */
+const kOverlapPenalty = 0.1;
 
 
 /**
@@ -202,19 +216,28 @@ export class OrthogonalRouter {
                     // TODO: Make emanate outwards.
                     const v: RouteVertex = { x: point.x, y: point.y, neighbors: {}, node: u };
                     vertices.push(v);
-                    hlines.push({
-                        y: point.y,
-                        x0: graphBounds.x,
-                        x1: graphBounds.X,
-                        vertices: [v],
-                    });
-                    vlines.push({
-                        x: point.x,
-                        y0: graphBounds.y,
-                        y1: graphBounds.Y,
-                        vertices: [v],
-                    });
                     portToVertex.set(point, v);
+
+                    switch(location) {
+                        case 'north':
+                        case 'south':
+                            vlines.push({
+                                x: point.x,
+                                y0: graphBounds.y,
+                                y1: graphBounds.Y,
+                                vertices: [v],
+                            });
+                            break;
+                        case 'east':
+                        case 'west':
+                            hlines.push({
+                                y: point.y,
+                                x0: graphBounds.x,
+                                x1: graphBounds.X,
+                                vertices: [v],
+                            });
+                            break;
+                    }                    
                 }
             });
         }
@@ -358,7 +381,8 @@ export class OrthogonalRouter {
                     direction: dir as CardinalDirection,
                     length: 0,
                     bends: 0,
-                    cost: costFn(lengthHeuristic(start, end), bendsHeuristic(start, end)),
+                    penalty: 0,
+                    cost: costFn(lengthHeuristic(start, end), bendsHeuristic(start, end), 0),
                     backlink: undefined,
                 });
                 frontier.add(startKey);
@@ -366,7 +390,7 @@ export class OrthogonalRouter {
             while(!frontier.isEmpty()) {
                 const currKey = frontier.poll();
                 if(currKey === undefined) break;
-                const { vertex, direction, length, bends } = cache.get(currKey)!;
+                const { vertex, direction, length, bends, penalty } = cache.get(currKey)!;
                 if(vertex === end) {
                     // Reconstruct path for the edge.
                     let ptr: string | undefined = currKey;
@@ -376,7 +400,7 @@ export class OrthogonalRouter {
                         route.push(vertex);
                         ptr = backlink;
                     }
-                    routes.set(edge, route);
+                    routes.set(edge, route.reverse());
                     return;
                 }
                 Object.entries(vertex.neighbors).forEach(([dir, neighbor]) => {
@@ -385,9 +409,11 @@ export class OrthogonalRouter {
                     const neighborKey = `${traversableVerticesIdx.get(neighbor)!}-${dir}`;
                     const neighborLength = manhattanDistance(vertex, neighbor);
                     const neighborBends = dir === direction ? 0 : 1;
+                    const neighborPenalty = neighborLength * (neighbor.node ? (neighbor.node === start.node || neighbor.node === end.node ? kSourceTargetPenalty : kOverlapPenalty) : 0);
                     const neighborCost = costFn(
                         length + neighborLength + lengthHeuristic(neighbor, end),
                         bends + neighborBends + bendsHeuristic(neighbor, end),
+                        penalty + neighborPenalty,
                     );
                     const existing = cache.get(neighborKey);
                     if(!existing || existing.cost > neighborCost) {
@@ -398,6 +424,7 @@ export class OrthogonalRouter {
                             direction: dir as CardinalDirection,
                             length: length + neighborLength,
                             bends: bends + neighborBends,
+                            penalty: penalty + neighborPenalty,
                             cost: neighborCost,
                             backlink: currKey,
                         });
@@ -418,19 +445,27 @@ export class OrthogonalRouter {
         // =========================================================================================
         // Phase 4: Convert routes to edge paths.
         
+        console.log("Phase 4: Convert routes to edge paths.");
+
         this.storage.edges().forEach((edge) => {
             const route = routes.get(edge);
-            if(!route) return;
-            edge.path = route.map((v) => {
-                // Keep original port endpoints and create new points for intermediate vertices.
-                if (portToVertex.get(edge.source.point) === v) {
-                    return edge.source.point;
-                } else if (portToVertex.get(edge.target.point) === v) {
-                    return edge.target.point;
-                } else {
-                    return new Vector(v.x, v.y);
+            if(!route || route.length <= 2) return;
+            
+            // Merge consecutive horizontal/vertical segments.
+            const colinear = (a: Vector, b: Vector, c: Vector) => {
+                return Math.abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) < 0.001;
+            }
+            let prev = new Vector(route[0].x, route[0].y);
+            const path: Vector[] = [prev];
+            for(let i = 1; i < route.length; i++) {
+                const curr = new Vector(route[i].x, route[i].y);
+                const next = i+1 < route.length ? new Vector(route[i+1].x, route[i+1].y) : null;
+                if(!next || !colinear(prev, curr, next)) {
+                    path.push(curr);
+                    prev = curr;
                 }
-            });
+            }
+            edge.path = path;
         })
     }
 }

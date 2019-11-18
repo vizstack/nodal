@@ -22,6 +22,7 @@ import { Graph } from './Graph';
 import { kGraphTwo } from './schemas-two';
 import { kGraphFive } from './schemas-five';
 import { kGraphGrid } from './schemas-grid';
+import { kGraphPorts } from './schemas-ports';
 import { OrthogonalRouter } from '../src/graph/router';
 
 
@@ -246,7 +247,7 @@ storiesOf('features', module)
         );
         return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
-    .add('edge routing', () => {
+    .add('edge routing (gridified)', () => {
         const idealLength = number('ideal length', 30);
         const padding = number('padding', 10);
         const margin = number('margin', 10);
@@ -275,7 +276,31 @@ storiesOf('features', module)
         );
         return <Graph key={`${Math.random()}`} layout={layout} animated interactive
             postprocess={(storage) => {
-                console.log("postprocess called");
+                const router = new OrthogonalRouter(storage as StructuredStorage);
+                router.route();
+            }}
+        />;
+    })
+    .add('edge routing (ports)', () => {
+        const idealLength = number('ideal length', 30);
+        const padding = number('padding', 10);
+        const flowSeparation = number('flow separation', 50);
+        const layout = makeLayout(
+            kGraphPorts.nodes,
+            kGraphPorts.edges,
+            { idealLength, compactness: 1, padding,
+                extraConstraints: function* (storage, step) {
+                    if(step > 10) {
+                        for (let e of storage.edges()) {
+                            if((storage as StructuredStorage).hasAncestorOrDescendant(e.source.node, e.target.node)) continue;
+                            yield constrainOffset(e.source.node.center, e.target.node.center, ">=", flowSeparation, [0, 1], { masses: [e.source.node.fixed ? 1e9 : 1, e.target.node.fixed ? 1e9 : 1] });
+                        }
+                    }
+                  }
+            },
+        );
+        return <Graph key={`${Math.random()}`} layout={layout} animated interactive
+            postprocess={(storage) => {
                 const router = new OrthogonalRouter(storage as StructuredStorage);
                 router.route();
             }}
