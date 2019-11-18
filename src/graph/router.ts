@@ -80,7 +80,7 @@ function bendsHeuristic(vertex: RouteVertex, end: RouteVertex) {
  * Penalty per length of segment within source/target nodes. Encourages routes from ports to go
  * around the node rather than through it.
  */
-const kSourceTargetPenalty = 20;
+const kSourceTargetPenalty = 1000;
 
 /**
  * Penalty per length of segment overlapping with any node. Encourages routes to use blank areas.
@@ -409,7 +409,18 @@ export class OrthogonalRouter {
                     const neighborKey = `${traversableVerticesIdx.get(neighbor)!}-${dir}`;
                     const neighborLength = manhattanDistance(vertex, neighbor);
                     const neighborBends = dir === direction ? 0 : 1;
-                    const neighborPenalty = neighborLength * (neighbor.node ? (neighbor.node === start.node || neighbor.node === end.node ? kSourceTargetPenalty : kOverlapPenalty) : 0);
+                    let neighborPenalty = 0; // neighborLength * (neighbor.node ? (neighbor.node === start.node || neighbor.node === end.node ? kSourceTargetPenalty : kOverlapPenalty) : 0);
+                    if (neighbor.node && vertex.node === neighbor.node) {
+                        if(neighbor.node === start.node! && !this.storage.hasDescendant(start.node!, end.node!)) {
+                            neighborPenalty += kSourceTargetPenalty;
+                        } else if (neighbor.node === end.node! && !this.storage.hasAncestor(start.node!, end.node!)) {
+                            neighborPenalty += kSourceTargetPenalty;
+                        }
+                    }
+                    if (neighbor.node && vertex.node) {
+                        neighborPenalty += kOverlapPenalty;
+                    }
+                    neighborPenalty *= neighborLength;
                     const neighborCost = costFn(
                         length + neighborLength + lengthHeuristic(neighbor, end),
                         bends + neighborBends + bendsHeuristic(neighbor, end),

@@ -102,7 +102,7 @@ export function* generateSpringForcesCompound(
         // TODO: Is this right to ignore? What is the meaning of shortestPath?
         const uvPath = shortestPath(u, v);
         if(uvPath === undefined) continue; // Ignore disconnected components.
-        let idealDistance = (typeof idealLength === "function") ? uvPath * idealLength(u, v) : uvPath * idealLength;
+        let idealDistance = (typeof idealLength === "function") ? idealLength(u, v) : idealLength;
         const axis = (new Vector()).subVectors(v.center, u.center);
         const actualDistance = axis.length() > 0 ? u.shape.boundary(axis).distanceTo(v.shape.boundary(axis.negate())) : 0;
 
