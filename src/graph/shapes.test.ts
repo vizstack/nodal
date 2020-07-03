@@ -1,10 +1,7 @@
-import {
-    Rectangle,
-    Circle,
-} from './shapes';
+import { Rectangle, Circle } from './shapes';
 import { Vector, Gradient } from '../optim';
 
-function expectToMatchVector(actual: Vector, expected: { x: number, y: number }) {
+function expectToMatchVector(actual: Vector, expected: { x: number; y: number }) {
     expect(actual.x).toBeCloseTo(expected.x);
     expect(actual.y).toBeCloseTo(expected.y);
 }
@@ -13,7 +10,7 @@ describe('Rectangle works correctly', () => {
     test('bounds() derived correctly from control points', () => {
         const rect = new Rectangle(new Vector(1, 2), 2, 4);
         const bounds = rect.bounds();
-        expect(bounds).toMatchObject({ x: 0, X: 2, y: 0, Y: 4});
+        expect(bounds).toMatchObject({ x: 0, X: 2, y: 0, Y: 4 });
     });
     test('toSchema() derived correctly from control points', () => {
         const rect = new Rectangle(new Vector(1, 2), 2, 4);
@@ -45,7 +42,10 @@ describe('Rectangle works correctly', () => {
     test('constrainPointOnBoundary() control side, no expansion', () => {
         const rect = new Rectangle(new Vector(1, 1), 2, 2);
         const point = new Vector(4, 1);
-        const [pointGrad, centerGrad, controlGrad] = rect.constrainPointOnBoundary(point, { masses: { shape: 1, point: 1}, expansion: 0 });
+        const [pointGrad, centerGrad, controlGrad] = rect.constrainPointOnBoundary(point, {
+            masses: { shape: 1, point: 1 },
+            expansion: 0,
+        });
 
         expectToMatchVector(pointGrad.grad, new Vector(-1, 0));
         expectToMatchVector(centerGrad.grad, new Vector(1, 0));
@@ -54,7 +54,10 @@ describe('Rectangle works correctly', () => {
     test('constrainPointOnBoundary() only move point', () => {
         const rect = new Rectangle(new Vector(1, 1), 2, 2);
         const point = new Vector(4, 1);
-        const [pointGrad, centerGrad, controlGrad] = rect.constrainPointOnBoundary(point, { masses: { shape: 1e9, point: 1}, expansion: 0 });
+        const [pointGrad, centerGrad, controlGrad] = rect.constrainPointOnBoundary(point, {
+            masses: { shape: 1e9, point: 1 },
+            expansion: 0,
+        });
 
         expectToMatchVector(pointGrad.grad, new Vector(-2, 0));
         expectToMatchVector(centerGrad.grad, new Vector(0, 0));
@@ -63,7 +66,10 @@ describe('Rectangle works correctly', () => {
     test('constrainPointOnBoundary() control side, expansion, preserve ratio', () => {
         const rect = new Rectangle(new Vector(1, 1), 2, 2);
         const point = new Vector(4, 1);
-        const [pointGrad, centerGrad, controlGrad] = rect.constrainPointOnBoundary(point, { masses: { shape: 1, point: 1}, expansion: 0.25 });
+        const [pointGrad, centerGrad, controlGrad] = rect.constrainPointOnBoundary(point, {
+            masses: { shape: 1, point: 1 },
+            expansion: 0.25,
+        });
 
         expectToMatchVector(pointGrad.grad, new Vector(-1, 0));
         expectToMatchVector(centerGrad.grad, new Vector(0.75, 0));

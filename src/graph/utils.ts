@@ -5,14 +5,14 @@ export function isIterable<T>(obj: any): obj is Iterable<T> {
 
 export function setIntersection<T>(x: Set<T>, y: Set<T>): Set<T> {
     const intersection = new Set<T>();
-    if(x.size < y.size) {
+    if (x.size < y.size) {
         x.forEach((elem) => {
-            if(y.has(elem)) intersection.add(elem);
-        })
+            if (y.has(elem)) intersection.add(elem);
+        });
     } else {
         y.forEach((elem) => {
-            if(x.has(elem)) intersection.add(elem);
-        })
+            if (x.has(elem)) intersection.add(elem);
+        });
     }
     return intersection;
 }

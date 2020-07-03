@@ -5,8 +5,8 @@ import { Storage } from './storage';
  * A `Layout` defines the structure of a graph layout optimization procedure. It allows both
  * executing the entire procedure automatically and stepping through the procedure manually.
  */
-export abstract class Layout {
-    constructor(public storage: Storage) {}
+export abstract class Layout<S extends Storage> {
+    constructor(public storage: S) {}
 
     /**
      * Runs the layout optimization until some convergence criterion is met.
@@ -19,10 +19,10 @@ export abstract class Layout {
     public abstract step(): void;
 }
 
-type Stage = {
-    iterations: number,
-    optimizer: Optimizer,
-    generator: (storage: Storage, step: number, iter: number) => IterableIterator<Gradient[]>,
+type Stage<S extends Storage> = {
+    iterations: number;
+    optimizer: Optimizer;
+    generator: (storage: S, step: number, iter: number) => IterableIterator<Gradient[]>;
 };
 
 /**
@@ -31,29 +31,29 @@ type Stage = {
  * gradients, which optimizer applies. Each stage may be repeated for a different fixed number
  * of iterations.
  */
-export class StagedLayout extends Layout {
-    public onStart: (elems: Storage, step: number) => boolean;
-    public onStep: (elems: Storage, step: number) => boolean;
-    public onEnd: (elems: Storage, step: number) => void;
-    public stages: Stage[];
+export class StagedLayout<S extends Storage> extends Layout<S> {
+    public onStart: (elems: S, step: number) => boolean;
+    public onStep: (elems: S, step: number) => boolean;
+    public onEnd: (elems: S, step: number) => void;
+    public stages: Stage<S>[];
 
     private _totalSteps: number;
     private _finishedSteps: number;
 
     constructor(
-        storage: Storage,
+        storage: S,
         {
             steps = 1,
             onStart = () => true,
             onStep = () => true,
             onEnd = () => undefined,
         }: Partial<{
-            steps: number,
-            onStart: (elems: Storage, step: number) => boolean;
-            onStep: (elems: Storage, step: number) => boolean;
-            onEnd: (elems: Storage, step: number) => void;
+            steps: number;
+            onStart: (elems: S, step: number) => boolean;
+            onStep: (elems: S, step: number) => boolean;
+            onEnd: (elems: S, step: number) => void;
         }>,
-        ...stages: Stage[]
+        ...stages: Stage<S>[]
     ) {
         super(storage);
         this.onStart = onStart;
@@ -82,11 +82,11 @@ export class StagedLayout extends Layout {
             for (let i = 1; i <= stage.iterations; i++) {
                 const gen = stage.generator(this.storage, this._finishedSteps, i);
                 let grads;
-                while(true) {
+                while (true) {
                     // Must use manual iteration, not for-of loop, in order to access return value.
                     grads = gen.next();
-                    if(grads.value) stage.optimizer.step(grads.value);
-                    if(grads.done) break;
+                    if (grads.value) stage.optimizer.step(grads.value);
+                    if (grads.done) break;
                 }
                 stage.optimizer.update();
             }

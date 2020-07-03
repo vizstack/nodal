@@ -5,69 +5,69 @@ import PriorityQueue from 'fastpriorityqueue';
 
 type RouteVertex = {
     /** Horizontal location of vertex. */
-    x: number,
-    
+    x: number;
+
     /** Vertical location of vertex. */
-    y: number,
+    y: number;
 
     /** Immediate neighbor vertices on grid. */
     neighbors: {
-        north?: RouteVertex,
-        south?: RouteVertex,
-        east?: RouteVertex,
-        west?: RouteVertex,
-    },
+        north?: RouteVertex;
+        south?: RouteVertex;
+        east?: RouteVertex;
+        west?: RouteVertex;
+    };
 
     /** Frontmost node that contains this vertex, if any. */
-    node?: Node,
+    node?: Node;
 };
 type RoutePartial = {
     /** Latest node on partial path. */
-    vertex: RouteVertex,
+    vertex: RouteVertex;
 
     /** Direction of entry into latest node. */
-    direction: CardinalDirection,
+    direction: CardinalDirection;
 
     /** Length so far of partial path. */
-    length: number,
+    length: number;
 
     /** Bends so far in partial path. */
-    bends: number,
+    bends: number;
 
     /** Penalty so far in the partial path. */
-    penalty: number,
+    penalty: number;
 
     /** Combined actual and expected (heuristic) cost of partial path. */
-    cost: number,
-    
+    cost: number;
+
     /** Key of previous vertex on partial path. */
-    backlink?: string,
+    backlink?: string;
 };
-type HorizontalSegment = { y: number, x0: number, x1: number, vertices: RouteVertex[] };
-type VerticalSegment = { x: number, y0: number, y1: number, vertices: RouteVertex[] };
+type HorizontalSegment = { y: number; x0: number; x1: number; vertices: RouteVertex[] };
+type VerticalSegment = { x: number; y0: number; y1: number; vertices: RouteVertex[] };
 
 type OrthogonalRouterConfig = {
-    nodeMargin: number,
-    edgeGap: number,
-    outerGap: number,
+    nodeMargin: number;
+    edgeGap: number;
+    outerGap: number;
 };
 
-type CardinalDirection = "north" | "south" | "east" | "west";
-const directionRight = { north: "east", east: "south", south: "west", west: "north" };
-const directionLeft = { north: "west", east: "north", south: "east", west: "south" };
-const directionReverse = { north: "south", east: "west", south: "north", west: "east" };
+type CardinalDirection = 'north' | 'south' | 'east' | 'west';
+const directionRight = { north: 'east', east: 'south', south: 'west', west: 'north' };
+const directionLeft = { north: 'west', east: 'north', south: 'east', west: 'south' };
+const directionReverse = { north: 'south', east: 'west', south: 'north', west: 'east' };
 function boundsContain(
-    bounds: { x: number, y: number, X: number, Y: number },
+    bounds: { x: number; y: number; X: number; Y: number },
     x: number,
     y: number,
-){
+) {
     return bounds.x <= x && x <= bounds.X && bounds.y <= y && y <= bounds.Y;
 }
 function manhattanDistance(u: RouteVertex, v: RouteVertex) {
     return Math.abs(u.x - v.x) + Math.abs(u.y - v.y);
-} 
+}
 function costFn(length: number, bends: number, penalities: number) {
-    return length + 1000*bends + penalities;
+    return length + 1000 * bends + penalities;
 }
 function lengthHeuristic(vertex: RouteVertex, end: RouteVertex) {
     return manhattanDistance(vertex, end);
@@ -87,7 +87,6 @@ const kSourceTargetPenalty = 1000;
  */
 const kOverlapPenalty = 0.1;
 
-
 /**
  * An `OrthogonalRouter` converts edge paths from straight segments of any orientation into
  * orthogonal routes of only horizontal/vertical segments.
@@ -96,17 +95,13 @@ export class OrthogonalRouter {
     protected _config: OrthogonalRouterConfig;
     constructor(
         public storage: StructuredStorage,
-        {
-            nodeMargin = 8,
-            edgeGap = 4,
-            outerGap = 8,
-        }: Partial<OrthogonalRouterConfig> = {},
+        { nodeMargin = 8, edgeGap = 4, outerGap = 8 }: Partial<OrthogonalRouterConfig> = {},
     ) {
         this._config = {
             nodeMargin,
             edgeGap,
             outerGap,
-        }
+        };
     }
 
     /**
@@ -122,33 +117,33 @@ export class OrthogonalRouter {
         //
         // Design decisions:
         // (1) Ports at 'center' are treated specially because the corresponding lines need
-        //     to emanate in both directions, along both vertical and horizontal axes. Other port 
+        //     to emanate in both directions, along both vertical and horizontal axes. Other port
         //     lines only emanate in a single direction along the axis perpendicular to the side.
         // (2) Edges with endpoints at ports on 'boundary' keep the same port, rather than be
         //     retargeted to a more convenient side. This is because: (a) multiple edges may target
         //     the same port, so routing cannot proceed independently, (b) ports can't be moved
         //     as that would break their constraint on the shape boundary.
 
-        if(Array.from(this.storage.nodes()).length === 0) return;
+        if (Array.from(this.storage.nodes()).length === 0) return;
 
         // =========================================================================================
         // Phase 1: Get visibility graph.
 
-        console.log("Phase 1: Get visibility graph.");
-        
+        console.log('Phase 1: Get visibility graph.');
+
         const vertices: RouteVertex[] = [];
         const portToVertex: Map<Vector, RouteVertex> = new Map();
         const hlines: HorizontalSegment[] = [];
         const vlines: VerticalSegment[] = [];
 
-         // Add graph bound lines.
+        // Add graph bound lines.
         const graphBounds = {
             x: Number.POSITIVE_INFINITY,
             X: Number.NEGATIVE_INFINITY,
-            y: Number.POSITIVE_INFINITY, 
+            y: Number.POSITIVE_INFINITY,
             Y: Number.NEGATIVE_INFINITY,
         };
-        for(let node of this.storage.nodes()) {
+        for (let node of this.storage.nodes()) {
             const { x, X, y, Y } = node.shape.bounds();
             graphBounds.x = Math.min(x - this._config.outerGap, graphBounds.x);
             graphBounds.y = Math.min(y - this._config.outerGap, graphBounds.y);
@@ -160,7 +155,7 @@ export class OrthogonalRouter {
         vlines.push({ x: graphBounds.x, y0: graphBounds.y, y1: graphBounds.Y, vertices: [] });
         vlines.push({ x: graphBounds.X, y0: graphBounds.y, y1: graphBounds.Y, vertices: [] });
 
-        for(let u of this.storage.nodes()) {
+        for (let u of this.storage.nodes()) {
             // Add node bound lines.
             const { x, X, y, Y } = u.shape.bounds();
             hlines.push({
@@ -189,7 +184,8 @@ export class OrthogonalRouter {
             });
 
             // Add node midpoint lines.
-            const cx = u.center.x, cy = u.center.y;
+            const cx = u.center.x,
+                cy = u.center.y;
             const center: RouteVertex = { x: cx, y: cy, neighbors: {}, node: u };
             vertices.push(center);
             hlines.push({
@@ -208,7 +204,7 @@ export class OrthogonalRouter {
 
             // Add port lines.
             Object.values(u.ports).forEach(({ point, location }) => {
-                if(location === "center") {
+                if (location === 'center') {
                     // For all 'center' ports, add to existing center vertex.
                     portToVertex.set(point, center);
                 } else {
@@ -218,7 +214,7 @@ export class OrthogonalRouter {
                     vertices.push(v);
                     portToVertex.set(point, v);
 
-                    switch(location) {
+                    switch (location) {
                         case 'north':
                         case 'south':
                             vlines.push({
@@ -237,7 +233,7 @@ export class OrthogonalRouter {
                                 vertices: [v],
                             });
                             break;
-                    }                    
+                    }
                 }
             });
         }
@@ -296,18 +292,23 @@ export class OrthogonalRouter {
         // TODO: Prioritize alleys.
         // TODO: Alley computation is too expensive rn.
         // TODO: Cut off rays at obstacles / edge of graph.
-       
+
         // Intersect lines and assign to nodes.
         const frontToBack = this.storage.hierarchicalSort().reverse();
         hlines.forEach((hline) => {
             vlines.forEach((vline) => {
-                if(hline.y < vline.y0 || hline.y > vline.y1 ||
-                   vline.x < hline.x0 || vline.x > hline.x1) return;
+                if (
+                    hline.y < vline.y0 ||
+                    hline.y > vline.y1 ||
+                    vline.x < hline.x0 ||
+                    vline.x > hline.x1
+                )
+                    return;
                 const vertex: RouteVertex = { x: vline.x, y: hline.y, neighbors: {} };
 
                 // Assign vertex to frontmost node that contains it.
-                for(let u of frontToBack) {
-                    if(boundsContain(u.shape.bounds(), vertex.x, vertex.y)) {
+                for (let u of frontToBack) {
+                    if (boundsContain(u.shape.bounds(), vertex.x, vertex.y)) {
                         vertex.node = u;
                         break;
                     }
@@ -322,16 +323,18 @@ export class OrthogonalRouter {
         // Connect adjacent vertices.
         hlines.forEach((hline) => {
             hline.vertices.sort((a, b) => a.x - b.x);
-            for(let i = 1; i < hline.vertices.length; i++) {
-                const a = hline.vertices[i-1], b = hline.vertices[i];
+            for (let i = 1; i < hline.vertices.length; i++) {
+                const a = hline.vertices[i - 1],
+                    b = hline.vertices[i];
                 a.neighbors.east = b;
                 b.neighbors.west = a;
             }
         });
         vlines.forEach((vline) => {
             vline.vertices.sort((a, b) => a.y - b.y);
-            for(let i = 1; i < vline.vertices.length; i++) {
-                const a = vline.vertices[i-1], b = vline.vertices[i];
+            for (let i = 1; i < vline.vertices.length; i++) {
+                const a = vline.vertices[i - 1],
+                    b = vline.vertices[i];
                 a.neighbors.south = b;
                 b.neighbors.north = a;
             }
@@ -342,7 +345,7 @@ export class OrthogonalRouter {
         // =========================================================================================
         // Phase 2: Get optimal routes.
 
-        console.log("Phase 2: Get optimal routes.");
+        console.log('Phase 2: Get optimal routes.');
 
         const routes: Map<Edge, RouteVertex[]> = new Map();
 
@@ -359,21 +362,25 @@ export class OrthogonalRouter {
                         boundsContain(nbounds, edge.source.point.x, edge.source.point.y) ||
                         boundsContain(nbounds, edge.target.point.x, edge.target.point.y)
                     );
-                })
+                }),
             ]);
             function isVertexTraversable(vertex: RouteVertex) {
-                return vertex.node === undefined || traversableNodes.has(vertex.node)
+                return vertex.node === undefined || traversableNodes.has(vertex.node);
             }
             const traversableVertices = vertices.filter(isVertexTraversable);
-            const traversableVerticesIdx = new Map(traversableVertices.map((vertex, idx) => [vertex,idx]));
+            const traversableVerticesIdx = new Map(
+                traversableVertices.map((vertex, idx) => [vertex, idx]),
+            );
 
             // Perform A* search for optimal routes.
             const start = portToVertex.get(edge.source.point);
             const end = portToVertex.get(edge.target.point);
-            if(start === undefined || end === undefined) throw new Error("Vertex not found");
+            if (start === undefined || end === undefined) throw new Error('Vertex not found');
 
             const cache = new Map<string, RoutePartial>();
-            const frontier = new PriorityQueue<string>((a, b) => cache.get(a)!.cost < cache.get(b)!.cost);
+            const frontier = new PriorityQueue<string>(
+                (a, b) => cache.get(a)!.cost < cache.get(b)!.cost,
+            );
             Object.entries(start.neighbors).forEach(([dir, _]) => {
                 const startKey = `${traversableVerticesIdx.get(start)!}-${dir}`;
                 cache.set(startKey, {
@@ -386,16 +393,16 @@ export class OrthogonalRouter {
                     backlink: undefined,
                 });
                 frontier.add(startKey);
-            })
-            while(!frontier.isEmpty()) {
+            });
+            while (!frontier.isEmpty()) {
                 const currKey = frontier.poll();
-                if(currKey === undefined) break;
+                if (currKey === undefined) break;
                 const { vertex, direction, length, bends, penalty } = cache.get(currKey)!;
-                if(vertex === end) {
+                if (vertex === end) {
                     // Reconstruct path for the edge.
                     let ptr: string | undefined = currKey;
                     const route: RouteVertex[] = [];
-                    while(ptr !== undefined) {
+                    while (ptr !== undefined) {
                         const { vertex, backlink } = cache.get(ptr)! as RoutePartial;
                         route.push(vertex);
                         ptr = backlink;
@@ -404,16 +411,22 @@ export class OrthogonalRouter {
                     return;
                 }
                 Object.entries(vertex.neighbors).forEach(([dir, neighbor]) => {
-                    if(dir === directionReverse[direction]) return;
-                    if(neighbor === undefined || !isVertexTraversable(neighbor)) return;
+                    if (dir === directionReverse[direction]) return;
+                    if (neighbor === undefined || !isVertexTraversable(neighbor)) return;
                     const neighborKey = `${traversableVerticesIdx.get(neighbor)!}-${dir}`;
                     const neighborLength = manhattanDistance(vertex, neighbor);
                     const neighborBends = dir === direction ? 0 : 1;
                     let neighborPenalty = 0; // neighborLength * (neighbor.node ? (neighbor.node === start.node || neighbor.node === end.node ? kSourceTargetPenalty : kOverlapPenalty) : 0);
                     if (neighbor.node && vertex.node === neighbor.node) {
-                        if(neighbor.node === start.node! && !this.storage.hasDescendant(start.node!, end.node!)) {
+                        if (
+                            neighbor.node === start.node! &&
+                            !this.storage.hasDescendant(start.node!, end.node!)
+                        ) {
                             neighborPenalty += kSourceTargetPenalty;
-                        } else if (neighbor.node === end.node! && !this.storage.hasAncestor(start.node!, end.node!)) {
+                        } else if (
+                            neighbor.node === end.node! &&
+                            !this.storage.hasAncestor(start.node!, end.node!)
+                        ) {
                             neighborPenalty += kSourceTargetPenalty;
                         }
                     }
@@ -427,7 +440,7 @@ export class OrthogonalRouter {
                         penalty + neighborPenalty,
                     );
                     const existing = cache.get(neighborKey);
-                    if(!existing || existing.cost > neighborCost) {
+                    if (!existing || existing.cost > neighborCost) {
                         // For every (vertex, direction) tuple, ensure only the one with the lowest
                         // cost stays in frontier open set.
                         cache.set(neighborKey, {
@@ -441,9 +454,9 @@ export class OrthogonalRouter {
                         });
                         frontier.add(neighborKey);
                     }
-                })
+                });
             }
-            console.warn(`No route found for edge: ${edge.id}`, );
+            console.warn(`No route found for edge: ${edge.id}`);
         });
 
         console.log(routes);
@@ -455,28 +468,29 @@ export class OrthogonalRouter {
 
         // =========================================================================================
         // Phase 4: Convert routes to edge paths.
-        
-        console.log("Phase 4: Convert routes to edge paths.");
+
+        console.log('Phase 4: Convert routes to edge paths.');
 
         this.storage.edges().forEach((edge) => {
             const route = routes.get(edge);
-            if(!route || route.length <= 2) return;
-            
+            if (!route || route.length <= 2) return;
+
             // Merge consecutive horizontal/vertical segments.
             const colinear = (a: Vector, b: Vector, c: Vector) => {
                 return Math.abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) < 0.001;
-            }
+            };
             let prev = new Vector(route[0].x, route[0].y);
             const path: Vector[] = [prev];
-            for(let i = 1; i < route.length; i++) {
+            for (let i = 1; i < route.length; i++) {
                 const curr = new Vector(route[i].x, route[i].y);
-                const next = i+1 < route.length ? new Vector(route[i+1].x, route[i+1].y) : null;
-                if(!next || !colinear(prev, curr, next)) {
+                const next =
+                    i + 1 < route.length ? new Vector(route[i + 1].x, route[i + 1].y) : null;
+                if (!next || !colinear(prev, curr, next)) {
                     path.push(curr);
                     prev = curr;
                 }
             }
             edge.path = path;
-        })
+        });
     }
 }

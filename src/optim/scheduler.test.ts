@@ -1,7 +1,6 @@
 import { BooleanScheduler, NumberScheduler, constant, linear, exponential } from './scheduler';
 
 describe('BooleanScheduler works correctly', () => {
-
     test('out of bounds returns default value', () => {
         const scheduler = new BooleanScheduler(true);
         expect(scheduler.get(-1)).toEqual(true);
@@ -10,7 +9,10 @@ describe('BooleanScheduler works correctly', () => {
     });
 
     test('bounds are [inclusive, exclusive)', () => {
-        const scheduler = new BooleanScheduler(false).to(2, true).to(3, false).to(4, true);
+        const scheduler = new BooleanScheduler(false)
+            .to(2, true)
+            .to(3, false)
+            .to(4, true);
         expect(scheduler.get(-1)).toEqual(false);
         expect(scheduler.get(0)).toEqual(true);
         expect(scheduler.get(1)).toEqual(true);
@@ -18,11 +20,9 @@ describe('BooleanScheduler works correctly', () => {
         expect(scheduler.get(3)).toEqual(true);
         expect(scheduler.get(4)).toEqual(false);
     });
-
 });
 
 describe('NumberScheduler works correctly', () => {
-
     test('out of bounds returns default value', () => {
         const scheduler = new NumberScheduler(86);
         expect(scheduler.get(-1)).toEqual(86);
@@ -71,5 +71,4 @@ describe('NumberScheduler works correctly', () => {
         expect(scheduler.get(0)).toEqual(3);
         expect(scheduler.get(2)).toEqual(86);
     });
-
 });

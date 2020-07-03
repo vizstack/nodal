@@ -1,5 +1,5 @@
+import { Gradient, BasicOptimizer } from '../optim';
 import {
-    Gradient,
     NodeSchema,
     EdgeSchema,
     fromSchema,
@@ -8,17 +8,12 @@ import {
     StagedLayout,
     generateNodeChildrenConstraints,
     generateNodePortConstraints,
-    BasicOptimizer,
-    EnergyOptimizer,
-    generateSpringForces,
     generateSpringForcesCompound,
-    generateSpringForcesMajorization,
     generateCompactnessForces,
     generateCenteringForces,
-    generateSpringForcesNewton,
-} from '../src';
+} from '../graph';
 
-export function makeLayout(
+export function organic(
     nodeSchemas: NodeSchema[],
     edgeSchemas: EdgeSchema[],
     {
@@ -53,9 +48,7 @@ export function makeLayout(
     const storage = new StructuredStorage(nodes, edges);
     const shortestPath = storage.shortestPaths();
 
-    const forceOptimizer = new BasicOptimizer(1);
-    // const forceOptimizer = new BasicOptimizer(0.5, 0.9);
-    // const forceOptimizer = new EnergyOptimizer({ lrInitial: 0.3, lrMax: 0.5, lrMin: 0.01, wait: 20, decay: 0.9, growth: 1.1, smoothing: 0.5 });
+    const forceOptimizer = new BasicOptimizer(0.5);
     const constraintOptimizer = new BasicOptimizer(1);
 
     return new StagedLayout(
@@ -65,8 +58,8 @@ export function makeLayout(
             iterations: forceIterations,
             optimizer: forceOptimizer,
             generator: function*(storage, step, iter) {
-                yield* generateSpringForcesNewton(storage, idealLength, shortestPath);
-                // yield* generateCenteringForces(storage, compactness);
+                yield* generateSpringForcesCompound(storage, idealLength, shortestPath);
+                yield* generateCenteringForces(storage, compactness);
                 yield* generateCompactnessForces(storage, compactness);
                 if (extraForces) yield* extraForces(storage, step, iter);
             },

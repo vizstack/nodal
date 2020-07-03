@@ -3,8 +3,8 @@ import { NodeSchema, EdgeSchema } from '../src';
 const kSize = 15;
 
 const kGraphCompound: {
-    nodes: NodeSchema[],
-    edges: EdgeSchema[],
+    nodes: NodeSchema[];
+    edges: EdgeSchema[];
 } = {
     nodes: [
         { id: 'p0', children: [], meta: { group: 0 } },
@@ -285,14 +285,20 @@ const edges = [
 ];
 
 parents.forEach((parent, child) => {
-    kGraphCompound.nodes.push({ id: `n${child}`, shape: { type: 'rectangle', width: kSize, height: kSize }, meta: { group: parent } });
+    kGraphCompound.nodes.push({
+        id: `n${child}`,
+        shape: { type: 'rectangle', width: kSize, height: kSize },
+        meta: { group: parent },
+    });
     kGraphCompound.nodes[parent].children!.push(`n${child}`);
 });
 
 edges.forEach(({ s, t }) => {
-    kGraphCompound.edges.push(
-        { id: `e${s}->${t}`, source: { id: `n${s}` }, target: { id: `n${t}` } }
-    );
+    kGraphCompound.edges.push({
+        id: `e${s}->${t}`,
+        source: { id: `n${s}` },
+        target: { id: `n${t}` },
+    });
 });
 
 export { kGraphCompound };

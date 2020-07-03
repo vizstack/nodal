@@ -20,53 +20,62 @@ import { Graph } from './Graph';
 import { kGraphSimple } from './schemas-simple';
 import { kGraphMetro } from './schemas-metro';
 
-
-
 storiesOf('examples', module)
     .add('organic', () => {
         const idealLength = number('ideal length', 30);
-        const layout = makeLayout(
-            kGraphSimple.nodes,
-            kGraphSimple.edges,
-            { idealLength },
-        );
+        const layout = makeLayout(kGraphSimple.nodes, kGraphSimple.edges, { idealLength });
         return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('hierarchical', () => {
         const idealLength = number('ideal length', 30);
         const flowSeparation = number('flow separation', 50);
-        const layout = makeLayout(
-            kGraphSimple.nodes,
-            kGraphSimple.edges,
-            { idealLength,
-              extraConstraints: function* (storage, step) {
-                if(step > 10) {
+        const layout = makeLayout(kGraphSimple.nodes, kGraphSimple.edges, {
+            idealLength,
+            extraConstraints: function*(storage, step) {
+                if (step > 10) {
+                    const grads = [];
                     for (let e of storage.edges()) {
-                        yield constrainOffset(e.source.node.center, e.target.node.center, ">=", flowSeparation, [0, 1], { masses: [e.source.node.fixed ? 1e9 : 1, e.target.node.fixed ? 1e9 : 1] });
+                        grads.push(
+                            ...constrainOffset(
+                                e.source.node.center,
+                                e.target.node.center,
+                                '>=',
+                                flowSeparation,
+                                [0, 1],
+                                {
+                                    masses: [
+                                        e.source.node.fixed ? 1e9 : 1,
+                                        e.target.node.fixed ? 1e9 : 1,
+                                    ],
+                                },
+                            ),
+                        );
                     }
+                    yield grads;
                 }
-              }
             },
-        );
+        });
         return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     .add('metro', () => {
         const idealLength = number('ideal length', 30);
         const flowSeparation = number('flow separation', 50);
-        const layout = makeLayout(
-            kGraphMetro.nodes,
-            kGraphMetro.edges,
-            { steps: 400,
-              idealLength,
-              extraForces: function* (storage, step) {
-                if(step > 150) {
-                    for(let edge of storage.edges()) {
-                      yield nudgeAngle(edge.source.node.center, edge.target.node.center, [0, 45, 90, 135, 180, 225, 270, 315], 75);
+        const layout = makeLayout(kGraphMetro.nodes, kGraphMetro.edges, {
+            steps: 400,
+            idealLength,
+            extraForces: function*(storage, step) {
+                if (step > 150) {
+                    for (let edge of storage.edges()) {
+                        yield nudgeAngle(
+                            edge.source.node.center,
+                            edge.target.node.center,
+                            [0, 45, 90, 135, 180, 225, 270, 315],
+                            75,
+                        );
                     }
                 }
-              },
             },
-        );
+        });
         return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     })
     // .add('multidirectional flow', () => {
@@ -129,7 +138,9 @@ storiesOf('examples', module)
     //     return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     // })
     .add('computational graph', () => {
-        const fire: (idx: number) => {nodes: NodeSchema[], edges: EdgeSchema[]} = (idx: number) => {
+        const fire: (idx: number) => { nodes: NodeSchema[]; edges: EdgeSchema[] } = (
+            idx: number,
+        ) => {
             return {
                 nodes: [
                     {
@@ -147,155 +158,183 @@ storiesOf('examples', module)
                             `n${idx}:relu21`,
                             `n${idx}:relu22`,
                             `n${idx}:cat`,
-                        ]
+                        ],
                     },
                     {
                         id: `n${idx}:conv1`,
                         shape: {
-                            type: 'rectangle', width: 50, height: 21,
-                        }
+                            type: 'rectangle',
+                            width: 50,
+                            height: 21,
+                        },
                     },
                     {
                         id: `n${idx}:relu1`,
                         shape: {
-                            type: 'rectangle', width: 36, height: 21,
-                        }
+                            type: 'rectangle',
+                            width: 36,
+                            height: 21,
+                        },
                     },
                     {
                         id: `n${idx}:conv21`,
                         shape: {
-                            type: 'rectangle', width: 50, height: 21,
-                        }
+                            type: 'rectangle',
+                            width: 50,
+                            height: 21,
+                        },
                     },
                     {
                         id: `n${idx}:conv22`,
                         shape: {
-                            type: 'rectangle', width: 50, height: 21,
-                        }
+                            type: 'rectangle',
+                            width: 50,
+                            height: 21,
+                        },
                     },
                     {
                         id: `n${idx}:relu21`,
                         shape: {
-                            type: 'rectangle', width: 36, height: 21,
-                        }
+                            type: 'rectangle',
+                            width: 36,
+                            height: 21,
+                        },
                     },
                     {
                         id: `n${idx}:relu22`,
                         shape: {
-                            type: 'rectangle', width: 36, height: 21,
-                        }
+                            type: 'rectangle',
+                            width: 36,
+                            height: 21,
+                        },
                     },
                     {
                         id: `n${idx}:cat`,
                         shape: {
-                            type: 'rectangle', width: 71, height: 21,
-                        }
-                    }
+                            type: 'rectangle',
+                            width: 71,
+                            height: 21,
+                        },
+                    },
                 ],
                 edges: [
                     {
                         id: `${idx}:c1r1`,
                         source: {
-                            id: `n${idx}:conv1`
+                            id: `n${idx}:conv1`,
                         },
                         target: {
-                            id: `n${idx}:relu1`
-                        }
+                            id: `n${idx}:relu1`,
+                        },
                     },
                     {
                         id: `${idx}:r1c21`,
                         source: {
-                            id: `n${idx}:relu1`
+                            id: `n${idx}:relu1`,
                         },
                         target: {
-                            id: `n${idx}:conv21`
-                        }
+                            id: `n${idx}:conv21`,
+                        },
                     },
                     {
                         id: `${idx}:r1c22`,
                         source: {
-                            id: `n${idx}:relu1`
+                            id: `n${idx}:relu1`,
                         },
                         target: {
-                            id: `n${idx}:conv22`
-                        }
+                            id: `n${idx}:conv22`,
+                        },
                     },
                     {
                         id: `${idx}:c21r21`,
                         source: {
-                            id: `n${idx}:conv21`
+                            id: `n${idx}:conv21`,
                         },
                         target: {
-                            id: `n${idx}:relu21`
-                        }
+                            id: `n${idx}:relu21`,
+                        },
                     },
                     {
                         id: `${idx}:c22r22`,
                         source: {
-                            id: `n${idx}:conv22`
+                            id: `n${idx}:conv22`,
                         },
                         target: {
-                            id: `n${idx}:relu22`
-                        }
+                            id: `n${idx}:relu22`,
+                        },
                     },
                     {
                         id: `${idx}:r21cat`,
                         source: {
-                            id: `n${idx}:relu21`
+                            id: `n${idx}:relu21`,
                         },
                         target: {
-                            id: `n${idx}:cat`
-                        }
+                            id: `n${idx}:cat`,
+                        },
                     },
                     {
                         id: `${idx}:r22cat`,
                         source: {
-                            id: `n${idx}:relu22`
+                            id: `n${idx}:relu22`,
                         },
                         target: {
-                            id: `n${idx}:cat`
-                        }
+                            id: `n${idx}:cat`,
+                        },
                     },
-                ]
-            }
-        }
-        const nodeSchemas = [...fire(0).nodes, ...fire(1).nodes, ...fire(2).nodes, ...fire(3).nodes, ...fire(4).nodes, ...fire(5).nodes];
-        const edgeSchemas = [...fire(0).edges, ...fire(1).edges, ...fire(2).edges, ...fire(3).edges, ...fire(4).edges, ...fire(5).edges];
+                ],
+            };
+        };
+        const nodeSchemas = [
+            ...fire(0).nodes,
+            ...fire(1).nodes,
+            ...fire(2).nodes,
+            ...fire(3).nodes,
+            ...fire(4).nodes,
+            ...fire(5).nodes,
+        ];
+        const edgeSchemas = [
+            ...fire(0).edges,
+            ...fire(1).edges,
+            ...fire(2).edges,
+            ...fire(3).edges,
+            ...fire(4).edges,
+            ...fire(5).edges,
+        ];
         nodeSchemas.push({
-            id: "maxpool",
+            id: 'maxpool',
             shape: {
                 type: 'rectangle',
                 width: 71,
                 height: 21,
-            }
-        });
-        edgeSchemas.push({
-            id: "0:cat1:1conv1",
-            source: {
-                id: "n0:cat",
-            },
-            target: {
-                id: "n1:conv1",
             },
         });
         edgeSchemas.push({
-            id: "1:cat1:2conv1",
+            id: '0:cat1:1conv1',
             source: {
-                id: "n1:cat",
+                id: 'n0:cat',
             },
             target: {
-                id: "n2:conv1",
+                id: 'n1:conv1',
             },
-        })
+        });
         edgeSchemas.push({
-            id: "2:cat1:3conv1",
+            id: '1:cat1:2conv1',
             source: {
-                id: "n2:cat",
+                id: 'n1:cat',
             },
             target: {
-                id: "n3:conv1",
+                id: 'n2:conv1',
             },
-        })
+        });
+        edgeSchemas.push({
+            id: '2:cat1:3conv1',
+            source: {
+                id: 'n2:cat',
+            },
+            target: {
+                id: 'n3:conv1',
+            },
+        });
         // edgeSchemas.push({
         //     id: "3:cat1:4conv1",
         //     source: {
@@ -306,54 +345,62 @@ storiesOf('examples', module)
         //     },
         // })
         edgeSchemas.push({
-            id: "3:cat1:maxpool",
+            id: '3:cat1:maxpool',
             source: {
-                id: "n3:cat",
+                id: 'n3:cat',
             },
             target: {
-                id: "maxpool",
+                id: 'maxpool',
             },
-        })
+        });
         edgeSchemas.push({
-            id: "maxpool:4conv1",
+            id: 'maxpool:4conv1',
             source: {
-                id: "maxpool",
+                id: 'maxpool',
             },
             target: {
-                id: "n4:conv1",
+                id: 'n4:conv1',
             },
-        })
+        });
         edgeSchemas.push({
-            id: "4:cat1:5conv1",
+            id: '4:cat1:5conv1',
             source: {
-                id: "n4:cat",
+                id: 'n4:cat',
             },
             target: {
-                id: "n5:conv1",
+                id: 'n5:conv1',
             },
-        })
+        });
 
         const idealLength = number('ideal length', 20);
         const flowSpacing = number('flow spacing', 30);
         const flowStart = number('flow timestep start', 0);
         const orientationStrength = number('orient to 90/270', 0);
-        const layout = makeLayout(
-            nodeSchemas,
-            edgeSchemas,
-            { idealLength, compactness: 0, forceIterations: 1, constraintIterations: 5,
-              extraForces: function* (storage) {
-                for(let e of storage.edges()) {
-                    yield nudgeAngle(e.source.node.center, e.target.node.center, [90, 270], orientationStrength);
+        const layout = makeLayout(nodeSchemas, edgeSchemas, {
+            idealLength,
+            compactness: 0,
+            forceIterations: 1,
+            constraintIterations: 5,
+            extraForces: function*(storage) {
+                for (let e of storage.edges()) {
+                    yield nudgeAngle(
+                        e.source.node.center,
+                        e.target.node.center,
+                        [90, 270],
+                        orientationStrength,
+                    );
                 }
-              },
-              extraConstraints: function* (storage, step) {
+            },
+            extraConstraints: function*(storage, step) {
                 if (step > flowStart) {
-                    for (let {source, target} of storage.edges()) {
-                        yield constrainNodeOffset(source.node, target.node, ">=", flowSpacing, [0, 1]);
+                    for (let { source, target } of storage.edges()) {
+                        yield constrainNodeOffset(source.node, target.node, '>=', flowSpacing, [
+                            0,
+                            1,
+                        ]);
                     }
                 }
-              }
             },
-        );
+        });
         return <Graph key={`${Math.random()}`} layout={layout} animated interactive />;
     });

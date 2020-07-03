@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Node, Edge, Storage, StagedLayout } from '../src/graph';
-import { Vector } from '../src/optim';
+
 // @ts-ignore
 import { roundCorners } from 'svg-path-round-corners/dist/es6/index';
 // @ts-ignore
@@ -8,9 +8,9 @@ import { parse } from 'svg-path-round-corners/dist/es6/parse';
 // @ts-ignore
 import { serialize } from 'svg-path-round-corners/dist/es6/serialize';
 
-type GraphProps = {
+type GraphProps<S extends Storage> = {
     /** The layout to run. */
-    layout: StagedLayout;
+    layout: StagedLayout<S>;
 
     /** Whether to run animation during layout process. */
     animated?: boolean;
@@ -19,14 +19,14 @@ type GraphProps = {
     interactive?: boolean;
 
     /** Function to specify color, as a string or an index into the default color palette. */
-    nodeColor?: (n: Node) => string | number,
-    edgeColor?: (e: Edge) => string | number,
+    nodeColor?: (n: Node) => string | number;
+    edgeColor?: (e: Edge) => string | number;
 
     /** Minimum graph size. */
     size?: [number, number];
 
     /** Postprocessing function run each time layout completes. */
-    postprocess: (storage: Storage) => void;
+    postprocess?: (storage: S) => void;
 };
 
 type GraphState = {
@@ -34,10 +34,10 @@ type GraphState = {
     edges: Iterable<Edge>;
     bounds: ReturnType<Storage['bounds']>;
     drag?: {
-        node: Node,
-        origin: { x: number, y: number },
-        center: { x: number, y: number },
-        fixed: boolean,
+        node: Node;
+        origin: { x: number; y: number };
+        center: { x: number; y: number };
+        fixed: boolean;
         bounds: ReturnType<Storage['bounds']>;
     };
 };
@@ -47,14 +47,14 @@ const kPortRadius = 2;
 const kAnimationTick = 0;
 const kLayoutSteps = 250;
 
-export class Graph extends React.Component<GraphProps, GraphState> {
-    static defaultProps: Partial<GraphProps> = {
+export class Graph<S extends Storage> extends React.Component<GraphProps<S>, GraphState> {
+    static defaultProps: Partial<GraphProps<Storage>> = {
         animated: false,
         interactive: false,
         size: [500, 500],
     };
 
-    constructor(props: GraphProps) {
+    constructor(props: GraphProps<S>) {
         super(props);
         const { layout, animated, postprocess } = this.props;
         this.state = {
@@ -63,11 +63,11 @@ export class Graph extends React.Component<GraphProps, GraphState> {
             bounds: layout.storage.bounds(),
             drag: undefined,
         };
-        if(animated) {
+        if (animated) {
             // Animated graphs should repeatedly stop after after every step in order to give React
             // time to rerender. This will continue until all iterations are done.
             layout.onEnd = (storage, step) => {
-                postprocess(storage);
+                if (postprocess) postprocess(storage);
                 this.forceUpdate();
 
                 // Remove call to `start` after initial layout is finished.
@@ -79,7 +79,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                     });
                     return false;
                 };
-            }
+            };
             layout.onStep = (storage) => {
                 this.setState({
                     nodes: storage.nodes(),
@@ -93,7 +93,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
             // Unanimated graphs should only update state after the initial layout ends, and on
             // every step afterwards, when the user manipulates the graph.
             layout.onEnd = (storage) => {
-                postprocess(storage);
+                if (postprocess) postprocess(storage);
                 this.setState({
                     nodes: storage.nodes(),
                     edges: storage.edges(),
@@ -116,23 +116,25 @@ export class Graph extends React.Component<GraphProps, GraphState> {
     }
 
     onMouseDown = (node: Node, x: number, y: number) => {
-        if(!this.props.interactive) return;
-        if(this.state.drag !== undefined) this.onMouseUp();
+        if (!this.props.interactive) return;
+        if (this.state.drag !== undefined) this.onMouseUp();
         const fixed = node.fixed;
-        this.setState((state) => ({ drag: {
-            node: node,
-            origin: { x, y },
-            center: { x: node.center.x, y: node.center.y },
-            fixed: fixed,
-            bounds: state.bounds,
-        } }));
+        this.setState((state) => ({
+            drag: {
+                node: node,
+                origin: { x, y },
+                center: { x: node.center.x, y: node.center.y },
+                fixed: fixed,
+                bounds: state.bounds,
+            },
+        }));
         node.fixed = true;
         this.doLayout(kLayoutSteps);
-    }
+    };
 
     onMouseUp = () => {
-        if(!this.props.interactive) return;
-        if(this.state.drag !== undefined) {
+        if (!this.props.interactive) return;
+        if (this.state.drag !== undefined) {
             const { layout } = this.props;
             const { node, fixed } = this.state.drag;
             node.fixed = fixed;
@@ -143,29 +145,29 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                 bounds: layout.storage.bounds(),
             });
         }
-    }
+    };
 
     onMouseMove = (x: number, y: number) => {
-        if(!this.props.interactive) return;
-        if(this.state.drag !== undefined) {
+        if (!this.props.interactive) return;
+        if (this.state.drag !== undefined) {
             const { node, origin, center } = this.state.drag;
             node.center.set(x - origin.x + center.x, y - origin.y + center.y);
             this.forceUpdate();
         }
-    }
+    };
 
     doLayout(steps: number) {
         const { layout, postprocess } = this.props;
-        if(steps <= 0) {
-            postprocess(layout.storage);
+        if (steps <= 0) {
+            if (postprocess) postprocess(layout.storage);
             this.forceUpdate();
             return;
         }
         setTimeout(() => {
             layout.step();
             this.forceUpdate();
-            if(this.state.drag === undefined) {
-                this.doLayout(steps-1);
+            if (this.state.drag === undefined) {
+                this.doLayout(steps - 1);
             } else {
                 this.doLayout(kLayoutSteps);
             }
@@ -178,23 +180,23 @@ export class Graph extends React.Component<GraphProps, GraphState> {
         const { size = [0, 0] } = this.props;
 
         const nodeColor = (n: Node) => {
-            if(!this.props.nodeColor) return Palette[0];  // Blue
+            if (!this.props.nodeColor) return Palette[0]; // Blue
             const value = this.props.nodeColor(n);
             return typeof value === 'number' ? Palette[value % Palette.length] : value;
-        }
+        };
 
         const edgeColor = (e: Edge) => {
-            if(!this.props.edgeColor) return Palette[13];  // Gray
+            if (!this.props.edgeColor) return Palette[13]; // Gray
             const value = this.props.edgeColor(e);
             return typeof value === 'number' ? Palette[value % Palette.length] : value;
-        }
+        };
 
         const compoundNodeComponents = [];
-        for(let node of nodes) {
-            if(node.children.length > 0) {
+        for (let node of nodes) {
+            if (node.children.length > 0) {
                 const shapeSchema = node.shape.toSchema();
                 let shape;
-                switch(shapeSchema.type) {
+                switch (shapeSchema.type) {
                     case 'rectangle':
                         const { width, height } = shapeSchema;
                         shape = (
@@ -209,12 +211,12 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                                 rx={4}
                                 opacity={0.3}
                             />
-                        )
+                        );
                         break;
                     case 'circle':
                         const { radius } = shapeSchema;
                         shape = (
-                            <circle 
+                            <circle
                                 cx={node.shape.center.x}
                                 cy={node.shape.center.y}
                                 r={radius}
@@ -224,13 +226,17 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                                 rx={4}
                                 opacity={0.3}
                             />
-                        )
+                        );
                         break;
                 }
                 compoundNodeComponents.push(
                     <g key={node.id} id={node.id}>
                         {shape}
-                        <text x={node.center.x} y={node.center.y} textAnchor="middle" dominantBaseline="middle"
+                        <text
+                            x={node.center.x}
+                            y={node.center.y}
+                            textAnchor='middle'
+                            dominantBaseline='middle'
                             style={{
                                 fontFamily: '"Helvetica Neue", sans-serif',
                                 fontWeight: 'bold',
@@ -239,10 +245,11 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                                 opacity: 1,
                                 pointerEvents: 'none',
                                 userSelect: 'none',
-                            }}>
+                            }}
+                        >
                             {node.id}
                         </text>
-                        {Object.entries(node.ports).map(([name, port]) => (
+                        {Object.entries(node.ports).map(([name, port]) =>
                             name.startsWith('_') ? null : (
                                 <circle
                                     cx={port.point.x}
@@ -252,19 +259,19 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                                     stroke={Color.white}
                                     strokeWidth={0.75}
                                 />
-                            )
-                        ))}
-                    </g>
+                            ),
+                        )}
+                    </g>,
                 );
             }
         }
 
         const simpleNodeComponents = [];
-        for(let node of nodes) {
-            if(node.children.length == 0) {
+        for (let node of nodes) {
+            if (node.children.length == 0) {
                 const shapeSchema = node.shape.toSchema();
                 let shape;
-                switch(shapeSchema.type) {
+                switch (shapeSchema.type) {
                     case 'rectangle':
                         const { width, height } = shapeSchema;
                         shape = (
@@ -279,12 +286,12 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                                 rx={4}
                                 onMouseDown={(e) => this.onMouseDown(node, e.clientX, e.clientY)}
                             />
-                        )
+                        );
                         break;
                     case 'circle':
                         const { radius } = shapeSchema;
                         shape = (
-                            <circle 
+                            <circle
                                 cx={node.shape.center.x}
                                 cy={node.shape.center.y}
                                 r={radius}
@@ -293,13 +300,17 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                                 strokeWidth={1}
                                 onMouseDown={(e) => this.onMouseDown(node, e.clientX, e.clientY)}
                             />
-                        )
+                        );
                         break;
                 }
                 simpleNodeComponents.push(
                     <g key={node.id} id={node.id}>
                         {shape}
-                        <text x={node.center.x} y={node.center.y} textAnchor="middle" dominantBaseline="middle"
+                        <text
+                            x={node.center.x}
+                            y={node.center.y}
+                            textAnchor='middle'
+                            dominantBaseline='middle'
                             style={{
                                 fontFamily: '"Helvetica Neue", sans-serif',
                                 fontSize: '10',
@@ -307,10 +318,11 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                                 opacity: 0.75,
                                 pointerEvents: 'none',
                                 userSelect: 'none',
-                            }}>
+                            }}
+                        >
                             {node.id.startsWith('n') ? node.id.substring(1) : node.id}
                         </text>
-                        {Object.entries(node.ports).map(([name, port]) => (
+                        {Object.entries(node.ports).map(([name, port]) =>
                             name.startsWith('_') ? null : (
                                 <circle
                                     cx={port.point.x}
@@ -320,15 +332,15 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                                     stroke={Color.white}
                                     strokeWidth={0.75}
                                 />
-                            )
-                        ))}
-                    </g>
+                            ),
+                        )}
+                    </g>,
                 );
             }
         }
 
         const edgeComponents = [];
-        for(let edge of edges) {
+        for (let edge of edges) {
             // const start = edge.path[0];
             // const end = edge.path[edge.path.length - 1];
             // if (edge.source.node.ports[edge.source.port].location === 'center') {
@@ -338,7 +350,7 @@ export class Graph extends React.Component<GraphProps, GraphState> {
             //     end.copy(edge.target.node.shape.boundary((new Vector()).subVectors(start, end)));
             // }
             let path = 'M ' + edge.path.map(({ x, y }) => `${x} ${y}`).join(' L ');
-            if(path) {
+            if (path) {
                 path = serialize(roundCorners(parse(path), kEdgeCurveRadius));
             }
 
@@ -349,17 +361,24 @@ export class Graph extends React.Component<GraphProps, GraphState> {
                         style={{
                             fill: 'none',
                             stroke: edgeColor(edge),
-                            strokeWidth: 2,
+                            strokeWidth: 1.5,
                             opacity: 0.75,
                         }}
                     />
-                </g>
-            )
+                </g>,
+            );
         }
-        
+
         return (
             <svg
-                viewBox={bounds ? `${bounds.x} ${bounds.y} ${Math.max(bounds.width, size[0])} ${Math.max(bounds.height, size[1])}` : undefined}
+                viewBox={
+                    bounds
+                        ? `${bounds.x} ${bounds.y} ${Math.max(bounds.width, size[0])} ${Math.max(
+                              bounds.height,
+                              size[1],
+                          )}`
+                        : undefined
+                }
                 width={bounds ? `${Math.max(bounds.width, size[0])}` : '100%'}
                 height={bounds ? `${Math.max(bounds.height, size[1])}` : '100%'}
                 onMouseMove={(e) => this.onMouseMove(e.clientX, e.clientY)}
@@ -384,4 +403,25 @@ const Color = {
     red: { l2: '#FCE8E8', l1: '#F4AAAA', base: '#DC3030', d1: '#B82020', d2: '#881B1B' },
 };
 
-const Palette = ['#4E79A7', '#A0CBE8', '#F28E2B', '#FFBE7D', '#59A14F', '#8CD17D', '#B6992D', '#F1CE63', '#499894', '#86BCB6', '#E15759', '#FF9D9A', '#79706E', '#BAB0AC', '#D37295', '#FABFD2', '#B07AA1', '#D4A6C8', '#9D7660', '#D7B5A6'];
+const Palette = [
+    '#4E79A7',
+    '#A0CBE8',
+    '#F28E2B',
+    '#FFBE7D',
+    '#59A14F',
+    '#8CD17D',
+    '#B6992D',
+    '#F1CE63',
+    '#499894',
+    '#86BCB6',
+    '#E15759',
+    '#FF9D9A',
+    '#79706E',
+    '#BAB0AC',
+    '#D37295',
+    '#FABFD2',
+    '#B07AA1',
+    '#D4A6C8',
+    '#9D7660',
+    '#D7B5A6',
+];

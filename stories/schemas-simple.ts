@@ -86,21 +86,26 @@ const edges = [
 ];
 
 const kGraphSimple: {
-    nodes: NodeSchema[],
-    edges: EdgeSchema[],
+    nodes: NodeSchema[];
+    edges: EdgeSchema[];
 } = {
     nodes: [],
     edges: [],
 };
 
-for(let n = 0; n < numNodes; n++) {
-    kGraphSimple.nodes.push({ id: `n${n}`, shape: { type: 'rectangle', width: kSize, height: kSize } });
+for (let n = 0; n < numNodes; n++) {
+    kGraphSimple.nodes.push({
+        id: `n${n}`,
+        shape: { type: 'rectangle', width: kSize, height: kSize },
+    });
 }
 
 edges.forEach(({ s, t }) => {
-    kGraphSimple.edges.push(
-        { id: `e${s}->${t}`, source: { id: `n${s}` }, target: { id: `n${t}` } }
-    );
+    kGraphSimple.edges.push({
+        id: `e${s}->${t}`,
+        source: { id: `n${s}` },
+        target: { id: `n${t}` },
+    });
 });
 
 export { kGraphSimple };

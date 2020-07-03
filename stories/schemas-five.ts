@@ -3,14 +3,14 @@ import { NodeSchema, EdgeSchema } from '../src';
 const kSize = 20;
 
 export const kGraphFive: {
-    nodesEqual: NodeSchema[],
-    nodesUnequal: NodeSchema[],
-    nodesShapes: NodeSchema[]
-    nodesNested: NodeSchema[],
-    nodesNestedShapes: NodeSchema[],
-    edgesAcyclic: EdgeSchema[],
-    edgesCyclic: EdgeSchema[],
-    edgesTree: EdgeSchema[],
+    nodesEqual: NodeSchema[];
+    nodesUnequal: NodeSchema[];
+    nodesShapes: NodeSchema[];
+    nodesNested: NodeSchema[];
+    nodesNestedShapes: NodeSchema[];
+    edgesAcyclic: EdgeSchema[];
+    edgesCyclic: EdgeSchema[];
+    edgesTree: EdgeSchema[];
 } = {
     nodesEqual: [
         { id: 'n0', shape: { type: 'rectangle', width: kSize, height: kSize } },
@@ -20,32 +20,36 @@ export const kGraphFive: {
         { id: 'n4', shape: { type: 'rectangle', width: kSize, height: kSize } },
     ],
     nodesUnequal: [
-        { id: 'n0', shape: { type: 'rectangle', width: kSize, height: kSize }},
-        { id: 'n1', shape: { type: 'rectangle', width: kSize * 2, height: kSize }},
-        { id: 'n2', shape: { type: 'rectangle', width: kSize * 2, height: kSize * 2 }},
-        { id: 'n3', shape: { type: 'rectangle', width: kSize, height: kSize * 2 }},
-        { id: 'n4', shape: { type: 'rectangle', width: kSize, height: kSize }},
+        { id: 'n0', shape: { type: 'rectangle', width: kSize, height: kSize } },
+        { id: 'n1', shape: { type: 'rectangle', width: kSize * 2, height: kSize } },
+        { id: 'n2', shape: { type: 'rectangle', width: kSize * 2, height: kSize * 2 } },
+        { id: 'n3', shape: { type: 'rectangle', width: kSize, height: kSize * 2 } },
+        { id: 'n4', shape: { type: 'rectangle', width: kSize, height: kSize } },
     ],
     nodesShapes: [
-        { id: 'n0', shape: { type: 'circle', radius: kSize / 2 }},
-        { id: 'n1', shape: { type: 'rectangle', width: kSize * 2, height: kSize }},
-        { id: 'n2', shape: { type: 'rectangle', width: kSize * 2, height: kSize * 2 }},
-        { id: 'n3', shape: { type: 'rectangle', width: kSize, height: kSize * 2 }},
-        { id: 'n4', shape: { type: 'circle', radius: kSize / 2}},
+        { id: 'n0', shape: { type: 'circle', radius: kSize / 2 } },
+        { id: 'n1', shape: { type: 'rectangle', width: kSize * 2, height: kSize } },
+        { id: 'n2', shape: { type: 'rectangle', width: kSize * 2, height: kSize * 2 } },
+        { id: 'n3', shape: { type: 'rectangle', width: kSize, height: kSize * 2 } },
+        { id: 'n4', shape: { type: 'circle', radius: kSize / 2 } },
     ],
     nodesNested: [
-        { id: 'n0', shape: { type: 'rectangle', width: kSize, height: kSize }},
-        { id: 'n1', shape: { type: 'rectangle', width: kSize, height: kSize }, children: ['n2', 'n3'] },
-        { id: 'n2', shape: { type: 'rectangle', width: kSize, height: kSize }},
-        { id: 'n3', shape: { type: 'rectangle', width: kSize, height: kSize }},
-        { id: 'n4', shape: { type: 'rectangle', width: kSize, height: kSize }},
+        { id: 'n0', shape: { type: 'rectangle', width: kSize, height: kSize } },
+        {
+            id: 'n1',
+            shape: { type: 'rectangle', width: kSize, height: kSize },
+            children: ['n2', 'n3'],
+        },
+        { id: 'n2', shape: { type: 'rectangle', width: kSize, height: kSize } },
+        { id: 'n3', shape: { type: 'rectangle', width: kSize, height: kSize } },
+        { id: 'n4', shape: { type: 'rectangle', width: kSize, height: kSize } },
     ],
     nodesNestedShapes: [
-        { id: 'n0', shape: { type: 'rectangle', width: kSize, height: kSize }},
+        { id: 'n0', shape: { type: 'rectangle', width: kSize, height: kSize } },
         { id: 'n1', shape: { type: 'circle', radius: kSize / 2 }, children: ['n2', 'n3'] },
-        { id: 'n2', shape: { type: 'rectangle', width: kSize, height: kSize }},
-        { id: 'n3', shape: { type: 'circle',  radius: kSize / 2 }},
-        { id: 'n4', shape: { type: 'rectangle', width: kSize, height: kSize }},
+        { id: 'n2', shape: { type: 'rectangle', width: kSize, height: kSize } },
+        { id: 'n3', shape: { type: 'circle', radius: kSize / 2 } },
+        { id: 'n4', shape: { type: 'rectangle', width: kSize, height: kSize } },
     ],
     edgesAcyclic: [
         { id: 'e0->1', source: { id: 'n0' }, target: { id: 'n1' } },

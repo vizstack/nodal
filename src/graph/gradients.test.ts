@@ -1,11 +1,7 @@
-import {
-    constrainOffset,
-    constrainDistance,
-    nudgeAngle,
-} from './gradients';
+import { constrainOffset, constrainDistance, nudgeAngle } from './gradients';
 import { Vector, Gradient } from '../optim';
 
-function expectToMatchVector(actual: Vector, expected: { x: number, y: number }) {
+function expectToMatchVector(actual: Vector, expected: { x: number; y: number }) {
     expect(actual.x).toBeCloseTo(expected.x);
     expect(actual.y).toBeCloseTo(expected.y);
 }
@@ -19,7 +15,7 @@ describe('constrainDistance works correctly', () => {
 
         grads = constrainDistance(new Vector(1, 0), new Vector(2, 0), '<=', 1.5);
         expect(grads).toHaveLength(0);
-        
+
         grads = constrainDistance(new Vector(1, 0), new Vector(2, 0), '=', 1);
         expect(grads).toHaveLength(0);
 
@@ -40,7 +36,7 @@ describe('constrainDistance works correctly', () => {
 
         grads = constrainDistance(new Vector(-1, 0), new Vector(-2, 0), '<=', 1.5);
         expect(grads).toHaveLength(0);
-        
+
         grads = constrainDistance(new Vector(-1, 0), new Vector(-2, 0), '=', 1);
         expect(grads).toHaveLength(0);
 
@@ -61,7 +57,7 @@ describe('constrainDistance works correctly', () => {
 
         grads = constrainDistance(new Vector(-1, 0), new Vector(1, 0), '<=', 2.5);
         expect(grads).toHaveLength(0);
-        
+
         grads = constrainDistance(new Vector(-1, 0), new Vector(1, 0), '=', 2);
         expect(grads).toHaveLength(0);
 
@@ -82,7 +78,7 @@ describe('constrainDistance works correctly', () => {
 
         grads = constrainDistance(new Vector(1, 0), new Vector(2, 1), '<=', 1.5, { axis: [1, 0] });
         expect(grads).toHaveLength(0);
-        
+
         grads = constrainDistance(new Vector(1, 0), new Vector(2, 1), '=', 1, { axis: [1, 0] });
         expect(grads).toHaveLength(0);
 
@@ -103,7 +99,7 @@ describe('constrainDistance works correctly', () => {
 
         grads = constrainDistance(new Vector(1, 0), new Vector(2, 1), '<=', 1.5, { axis: [-1, 0] });
         expect(grads).toHaveLength(0);
-        
+
         grads = constrainDistance(new Vector(1, 0), new Vector(2, 1), '=', 1, { axis: [-1, 0] });
         expect(grads).toHaveLength(0);
 

@@ -36,7 +36,7 @@ export class BasicOptimizer extends Optimizer {
     }
 
     public step(gradients: Gradient[]) {
-        gradients.forEach(({grad, point}) => point.addScaledVector(grad, this.lr));
+        gradients.forEach(({ grad, point }) => point.addScaledVector(grad, this.lr));
     }
 
     public update() {
@@ -57,7 +57,7 @@ export class ScheduledOptimizer extends Optimizer {
     }
 
     public step(gradients: Gradient[]) {
-        gradients.forEach(({grad, point}) => point.addScaledVector(grad, this._lr));
+        gradients.forEach(({ grad, point }) => point.addScaledVector(grad, this._lr));
     }
 
     public update() {
@@ -106,11 +106,19 @@ export class EnergyOptimizer extends Optimizer {
 
     constructor(config: Partial<EnergyOptimizerConfig> = {}) {
         super();
-        const { lrInitial = 1, wait = 5, lrMax = 1, lrMin = 0.01, decay = 0.9, growth = 1.1, smoothing = 0.1 } = config;
+        const {
+            lrInitial = 1,
+            wait = 5,
+            lrMax = 1,
+            lrMin = 0.01,
+            decay = 0.9,
+            growth = 1.1,
+            smoothing = 0.1,
+        } = config;
         if (decay > 1) throw Error('Must specify value of `decay` <= 1');
         if (growth < 1) throw Error('Must specify value of `growth` >= 1');
         if (wait < 0) throw Error('Must specify value of `wait` >= 0');
-        this._config = { lrInitial,lrMax, lrMin, wait, decay, growth, smoothing };
+        this._config = { lrInitial, lrMax, lrMin, wait, decay, growth, smoothing };
         this._lr = lrInitial;
     }
 
@@ -120,12 +128,12 @@ export class EnergyOptimizer extends Optimizer {
             grad.point.add(grad.grad.clone().multiplyScalar(this._lr));
             energy += grad.grad.length();
         });
-        energy /= (gradients.length + 1);
+        energy /= gradients.length + 1;
         this._currEnergy += energy;
     }
 
     public update() {
-        if(!this._prevEnergy) this._prevEnergy = this._currEnergy;
+        if (!this._prevEnergy) this._prevEnergy = this._currEnergy;
         if (this._currEnergy < this._prevEnergy) {
             this._numStepsImproved += 1;
             if (this._numStepsImproved >= this._config.wait) {
@@ -144,10 +152,9 @@ export class EnergyOptimizer extends Optimizer {
         this._prevEnergy += (1 - this._config.smoothing) * this._currEnergy;
         this._currEnergy = 0;
     }
-
 }
 
-/** 
+/**
  * A `RMSPropOptimizer` uses an adaptive scheme based on a per-parameter moving weighted average of
  * magnitudes.
  */
@@ -163,11 +170,13 @@ export class RMSPropOptimizer extends Optimizer {
         gradients.forEach(({ grad, point }) => {
             // Calculate smoothed average of squared gradients.
             let square_avg = this._square_avgs.get(point) || new Vector(0, 0);
-            square_avg = square_avg.multiplyScalar(this.smoothing).addScaledVector(grad.clone().multiply(grad), 1 - this.smoothing);
+            square_avg = square_avg
+                .multiplyScalar(this.smoothing)
+                .addScaledVector(grad.clone().multiply(grad), 1 - this.smoothing);
             this._square_avgs.set(point, square_avg);
-            
-            point.x += this.lr * grad.x / (Math.sqrt(square_avg.x) + 1e-3);
-            point.y += this.lr * grad.y / (Math.sqrt(square_avg.y) + 1e-3);
+
+            point.x += (this.lr * grad.x) / (Math.sqrt(square_avg.x) + 1e-3);
+            point.y += (this.lr * grad.y) / (Math.sqrt(square_avg.y) + 1e-3);
         });
     }
 
@@ -182,7 +191,13 @@ export class TrustRegionOptimizer extends Optimizer {
     protected _norm_avgs: Map<Vector, number>;
     protected _lrs: Map<Vector, number>;
 
-    constructor(protected lr: number = 0.6, protected adaption: number = 0.1, protected smoothing: number = 0.5, protected lrMax: number = 1, protected lrMin: number = 0.00001) {
+    constructor(
+        protected lr: number = 0.6,
+        protected adaption: number = 0.1,
+        protected smoothing: number = 0.5,
+        protected lrMax: number = 1,
+        protected lrMin: number = 0.00001,
+    ) {
         super();
         this._norm_avgs = new Map();
         this._lrs = new Map();
@@ -197,7 +212,10 @@ export class TrustRegionOptimizer extends Optimizer {
 
             // Increase learning rate if gradients are growing.
             let lr = this._lrs.get(point) || this.lr;
-            lr = grad.length()/(norm_avg + 1e-3) >=0.5 ? Math.min(this.lrMax, (1+this.adaption)*lr) : Math.max(this.lrMin, (1-this.adaption)*lr)
+            lr =
+                grad.length() / (norm_avg + 1e-3) >= 0.5
+                    ? Math.min(this.lrMax, (1 + this.adaption) * lr)
+                    : Math.max(this.lrMin, (1 - this.adaption) * lr);
             this._lrs.set(point, lr);
             // console.log(grad.length() > norm_avg, lr);
 

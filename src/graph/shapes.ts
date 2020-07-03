@@ -6,7 +6,7 @@ import {
     Box,
 } from 'sat';
 
-import {Box2} from 'three';
+import { Box2 } from 'three';
 
 /** A lightweight specification that is transformed into a `Shape`. */
 export type ShapeSchema<T extends Shape = Shape> = ReturnType<T['toSchema']>;
@@ -22,7 +22,14 @@ export abstract class Shape {
     /**
      * Returns the axis-aligned bounding box (AABB) around the shape.
      */
-    public abstract bounds(): { x: number, X: number, y: number, Y: number, width: number, height: number };
+    public abstract bounds(): {
+        x: number;
+        X: number;
+        y: number;
+        Y: number;
+        width: number;
+        height: number;
+    };
 
     /**
      * Returns the point on the boundary in the specified `direction` with respect to the center.
@@ -42,34 +49,46 @@ export abstract class Shape {
 
     /**
      * Produces gradients which move the center and control point such that it encloses every shape in `subshapes` with the least total volume.
-     * @param subshapes 
-     * @param offset 
+     * @param subshapes
+     * @param offset
      */
-    public abstract constrainShapesWithin(subshapes: Shape[], offset: number, config?: Partial<{ masses: { shape: number, subshapes: number }}>): Gradient[] | [];
+    public abstract constrainShapesWithin(
+        subshapes: Shape[],
+        offset: number,
+        config?: Partial<{ masses: { shape: number; subshapes: number } }>,
+    ): Gradient[] | [];
 
     /**
      * Produces gradients to keep the `point` within this shape, adjusting this shape's dimensions
      * and the `point`'s location according to the relative masses.
-     * @param point 
+     * @param point
      *     The point to constrain within this shape's boundary.
-     * @param masses 
+     * @param masses
      *     The mass of this shape and the point, respectively.
      */
     public abstract constrainPointWithin(
         point: Vector,
-        config?: Partial<{ masses: { shape: number, point: number }, expansion: number, offset: number }>
+        config?: Partial<{
+            masses: { shape: number; point: number };
+            expansion: number;
+            offset: number;
+        }>,
     ): Gradient[];
 
     /**
      * Produces gradients to keep the `point` on the shape's interior boundary.
-     * @param point 
+     * @param point
      *     The point to constrain to this shape's boundary.
-     * @param masses 
+     * @param masses
      *     The mass of this shape and the point, respectively.
      */
     public abstract constrainPointOnBoundary(
         point: Vector,
-        config?: Partial<{ masses: { shape: number, point: number }, expansion: number, offset: number }>
+        config?: Partial<{
+            masses: { shape: number; point: number };
+            expansion: number;
+            offset: number;
+        }>,
     ): Gradient[];
 
     public abstract toCollidable(): CollidablePolygon | CollidableCircle;
@@ -77,7 +96,7 @@ export abstract class Shape {
     /**
      * Transforms this `Shape` to a `ShapeSchema`.
      */
-    public abstract toSchema(): Record<string, any> & { type: string, preserve?: 'size' | 'ratio' };
+    public abstract toSchema(): Record<string, any> & { type: string; preserve?: 'size' | 'ratio' };
 }
 
 export function fromShapeSchema(schema: ShapeSchema, center: Vector): Shape {
@@ -100,12 +119,7 @@ export function fromShapeSchema(schema: ShapeSchema, center: Vector): Shape {
 export class Rectangle extends Shape {
     control: Vector;
 
-    constructor(
-        center: Vector,
-        width: number,
-        height: number,
-        preserve?: 'size' | 'ratio',
-    ) {
+    constructor(center: Vector, width: number, height: number, preserve?: 'size' | 'ratio') {
         super(center, preserve);
         this.control = new Vector(width / 2, height / 2);
     }
@@ -126,7 +140,11 @@ export class Rectangle extends Shape {
             const pt = intersectSegment(start, end, direction);
             if (pt !== undefined) return pt.add(this.center);
         }
-        throw Error(`No boundary point found: direction ${JSON.stringify(direction)}, edges ${JSON.stringify(this._edges())}`);
+        throw Error(
+            `No boundary point found: direction ${JSON.stringify(
+                direction,
+            )}, edges ${JSON.stringify(this._edges())}`,
+        );
     }
 
     public support(direction: Vector) {
@@ -145,14 +163,18 @@ export class Rectangle extends Shape {
 
     public contains(point: Vector, offset: number = 0) {
         return (
-            (point.x <= this.center.x + this.control.x + offset) &&
-            (point.x >= this.center.x - this.control.x - offset) &&
-            (point.y <= this.center.y + this.control.y + offset) &&
-            (point.y >= this.center.y - this.control.y - offset)
+            point.x <= this.center.x + this.control.x + offset &&
+            point.x >= this.center.x - this.control.x - offset &&
+            point.y <= this.center.y + this.control.y + offset &&
+            point.y >= this.center.y - this.control.y - offset
         );
     }
 
-    public constrainShapesWithin(subshapes: Shape[], offset: number = 0, { masses = { shape: 1, subshapes: 1 }} = {}) {
+    public constrainShapesWithin(
+        subshapes: Shape[],
+        offset: number = 0,
+        { masses = { shape: 1, subshapes: 1 } } = {},
+    ) {
         let box = new Box2();
         subshapes.forEach((subshape) => {
             const { x, y, X, Y } = subshape.bounds();
@@ -161,9 +183,13 @@ export class Rectangle extends Shape {
         box.expandByScalar(offset);
         const size = new Vector();
         box.getSize(size);
-        const centerGrad = (new Vector()).subVectors(box.getCenter(new Vector()), this.center).multiplyScalar(masses.subshapes / (masses.shape + masses.subshapes));
-        const controlGrad = (new Vector()).subVectors(size.multiplyScalar(0.5), this.control);
-        const subshapeGrad = (new Vector()).subVectors(box.getCenter(new Vector()), this.center).multiplyScalar(-masses.shape / (masses.shape + masses.subshapes));
+        const centerGrad = new Vector()
+            .subVectors(box.getCenter(new Vector()), this.center)
+            .multiplyScalar(masses.subshapes / (masses.shape + masses.subshapes));
+        const controlGrad = new Vector().subVectors(size.multiplyScalar(0.5), this.control);
+        const subshapeGrad = new Vector()
+            .subVectors(box.getCenter(new Vector()), this.center)
+            .multiplyScalar(-masses.shape / (masses.shape + masses.subshapes));
         return [
             new Gradient(this.center, centerGrad),
             new Gradient(this.control, controlGrad),
@@ -171,13 +197,19 @@ export class Rectangle extends Shape {
         ];
     }
 
-    public constrainPointWithin(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
+    public constrainPointWithin(
+        point: Vector,
+        { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {},
+    ) {
         if (this.contains(point, offset)) return [];
         return this.constrainPointOnBoundary(point, { masses, expansion, offset });
     }
 
-    public constrainPointOnBoundary(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
-        const centerToPoint = (new Vector()).subVectors(point, this.center);
+    public constrainPointOnBoundary(
+        point: Vector,
+        { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {},
+    ) {
+        const centerToPoint = new Vector().subVectors(point, this.center);
         const boundary = this.boundary(centerToPoint, offset).sub(this.center);
         const boundaryToPointOffset = centerToPoint.length() - boundary.length();
         const pointDelta = -boundaryToPointOffset * (masses.shape / (masses.shape + masses.point));
@@ -186,10 +218,7 @@ export class Rectangle extends Shape {
         const boundaryDelta = shapeDelta * expansion;
 
         centerToPoint.normalize();
-        const pointGrad = new Gradient(
-            point,
-            centerToPoint.clone().multiplyScalar(pointDelta),
-        );
+        const pointGrad = new Gradient(point, centerToPoint.clone().multiplyScalar(pointDelta));
         const centerGrad = new Gradient(
             this.center,
             centerToPoint.clone().multiplyScalar(centerDelta),
@@ -197,7 +226,7 @@ export class Rectangle extends Shape {
         // TODO: Preserve ratio, size, none
         const controlGrad = new Gradient(
             this.control,
-            this.control.clone().multiplyScalar(boundaryDelta / boundary.length())
+            this.control.clone().multiplyScalar(boundaryDelta / boundary.length()),
         );
         return [pointGrad, centerGrad, controlGrad];
     }
@@ -206,7 +235,7 @@ export class Rectangle extends Shape {
         // Vertices must be specified counter-clockwise,
         return new CollidablePolygon(
             new CollidableVector(this.center.x, this.center.y),
-            this._vertices().map((vec) => new CollidableVector(vec.x, vec.y))
+            this._vertices().map((vec) => new CollidableVector(vec.x, vec.y)),
         );
     }
 
@@ -218,20 +247,24 @@ export class Rectangle extends Shape {
 
     private _edges(offset: number = 0): Array<[Vector, Vector]> {
         const { x: halfwidth, y: halfheight } = this.control;
-        const x = -halfwidth - offset, X = halfwidth + offset;
-        const y = -halfheight - offset, Y = halfheight + offset;
+        const x = -halfwidth - offset,
+            X = halfwidth + offset;
+        const y = -halfheight - offset,
+            Y = halfheight + offset;
         return [
-            [new Vector(x, y), new Vector(X, y)],  // Top edge.
-            [new Vector(x, Y), new Vector(X, Y)],  // Bottom edge.
-            [new Vector(x, y), new Vector(x, Y)],  // Left edge.
-            [new Vector(X, y), new Vector(X, Y)],  // Right edge.
+            [new Vector(x, y), new Vector(X, y)], // Top edge.
+            [new Vector(x, Y), new Vector(X, Y)], // Bottom edge.
+            [new Vector(x, y), new Vector(x, Y)], // Left edge.
+            [new Vector(X, y), new Vector(X, Y)], // Right edge.
         ];
     }
 
     private _vertices(offset: number = 0): Array<Vector> {
         const { x: halfwidth, y: halfheight } = this.control;
-        const x = -halfwidth - offset, X = halfwidth + offset;
-        const y = -halfheight - offset, Y = halfheight + offset;
+        const x = -halfwidth - offset,
+            X = halfwidth + offset;
+        const y = -halfheight - offset,
+            Y = halfheight + offset;
         return [new Vector(x, y), new Vector(X, y), new Vector(X, Y), new Vector(x, Y)];
     }
 }
@@ -240,11 +273,7 @@ export class Circle extends Shape {
     /** Point at the zero-angle point of a circle. */
     public radius: Vector;
 
-    constructor(
-        center: Vector,
-        radius: number,
-        preserve?: 'size' | 'ratio',
-    ) {
+    constructor(center: Vector, radius: number, preserve?: 'size' | 'ratio') {
         super(center, preserve);
         this.radius = new Vector(radius, 0);
     }
@@ -257,11 +286,14 @@ export class Circle extends Shape {
             Y: this.center.y + this.radius.x,
             width: this.radius.x * 2,
             height: this.radius.x * 2,
-        }
+        };
     }
 
     public boundary(direction: Vector, offset: number = 0) {
-        return direction.clone().setLength(this.radius.x).add(this.center);
+        return direction
+            .clone()
+            .setLength(this.radius.x)
+            .add(this.center);
     }
 
     public support(direction: Vector, offset: number = 0) {
@@ -269,10 +301,14 @@ export class Circle extends Shape {
     }
 
     public contains(point: Vector, offset: number = 0) {
-        return (new Vector()).subVectors(point, this.center).length() < this.radius.x;
+        return new Vector().subVectors(point, this.center).length() < this.radius.x;
     }
 
-    public constrainShapesWithin(subshapes: Shape[], offset: number = 0, { masses = { shape: 1, subshapes: 1 }} = {}) {
+    public constrainShapesWithin(
+        subshapes: Shape[],
+        offset: number = 0,
+        { masses = { shape: 1, subshapes: 1 } } = {},
+    ) {
         // TODO: do something smarter than bounding rectangle enclosure
         let box = new Box2();
         subshapes.forEach((subshape) => {
@@ -280,23 +316,42 @@ export class Circle extends Shape {
             box.union(new Box2(new Vector(x, y), new Vector(X, Y)));
         });
         box.expandByScalar(offset);
-        const centerGrad = (new Vector()).subVectors(box.getCenter(new Vector()), this.center).multiplyScalar(masses.subshapes / (masses.shape + masses.subshapes));
-        const controlGrad = (new Vector()).subVectors(new Vector(box.getSize(new Vector()).multiplyScalar(0.5).length(), 0), this.radius);
-        const subshapeGrad = (new Vector()).subVectors(box.getCenter(new Vector()), this.center).multiplyScalar(-masses.shape / (masses.shape + masses.subshapes));
+        const centerGrad = new Vector()
+            .subVectors(box.getCenter(new Vector()), this.center)
+            .multiplyScalar(masses.subshapes / (masses.shape + masses.subshapes));
+        const controlGrad = new Vector().subVectors(
+            new Vector(
+                box
+                    .getSize(new Vector())
+                    .multiplyScalar(0.5)
+                    .length(),
+                0,
+            ),
+            this.radius,
+        );
+        const subshapeGrad = new Vector()
+            .subVectors(box.getCenter(new Vector()), this.center)
+            .multiplyScalar(-masses.shape / (masses.shape + masses.subshapes));
         return [
-            new Gradient(this.center, centerGrad), 
+            new Gradient(this.center, centerGrad),
             new Gradient(this.radius, controlGrad),
             ...subshapes.map((s) => new Gradient(s.center, subshapeGrad.clone())),
         ];
     }
 
-    public constrainPointWithin(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
+    public constrainPointWithin(
+        point: Vector,
+        { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {},
+    ) {
         if (this.contains(point, offset)) return [];
         return this.constrainPointOnBoundary(point, { masses, expansion, offset });
     }
 
-    public constrainPointOnBoundary(point: Vector, { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {}) {
-        const centerToPoint = (new Vector()).subVectors(point, this.center);
+    public constrainPointOnBoundary(
+        point: Vector,
+        { masses = { shape: 1, point: 1 }, expansion = 0, offset = 0 } = {},
+    ) {
+        const centerToPoint = new Vector().subVectors(point, this.center);
         const boundary = this.boundary(centerToPoint, offset).sub(this.center);
         const boundaryToPointOffset = centerToPoint.length() - boundary.length();
         const pointDelta = -boundaryToPointOffset * (masses.shape / (masses.shape + masses.point));
@@ -305,10 +360,7 @@ export class Circle extends Shape {
         const boundaryDelta = shapeDelta * expansion;
 
         centerToPoint.normalize();
-        const pointGrad = new Gradient(
-            point,
-            centerToPoint.clone().multiplyScalar(pointDelta),
-        );
+        const pointGrad = new Gradient(point, centerToPoint.clone().multiplyScalar(pointDelta));
         const centerGrad = new Gradient(
             this.center,
             centerToPoint.clone().multiplyScalar(centerDelta),
@@ -316,13 +368,16 @@ export class Circle extends Shape {
         // TODO: Preserve ratio, size, none
         const controlGrad = new Gradient(
             this.radius,
-            this.radius.clone().multiplyScalar(boundaryDelta / boundary.length())
+            this.radius.clone().multiplyScalar(boundaryDelta / boundary.length()),
         );
         return [pointGrad, centerGrad, controlGrad];
     }
 
     public toCollidable() {
-        return new CollidableCircle(new CollidableVector(this.center.x, this.center.y), this.radius.x);
+        return new CollidableCircle(
+            new CollidableVector(this.center.x, this.center.y),
+            this.radius.x,
+        );
     }
 
     public toSchema() {
@@ -336,7 +391,7 @@ export class Circle extends Shape {
  * no intersection. Segment and ray must not be degenerate (with zero length).
  * @param start
  *    Start point of segment with respect to the orgin.
- * @param end 
+ * @param end
  *    End point of segment with respect to the origin.
  * @param ray
  *    Direction vector of ray starting from the orgin.
@@ -345,11 +400,14 @@ function intersectSegment(start: Vector, end: Vector, ray: Vector): Vector | und
     // Formulas for t and s derived by solving a system of linear equations:
     // [x, y] = start * (1 - t) + end * t,   where t in [0, 1]
     // [x, y] = ray * s,   where s in [0, inf)
-    const delta = (new Vector()).subVectors(end, start);
+    const delta = new Vector().subVectors(end, start);
     const denom = ray.y * delta.x - ray.x * delta.y;
-    if (Math.abs(denom) < 1e-6) return undefined;  // Ray and segment are parallel.
+    if (Math.abs(denom) < 1e-6) return undefined; // Ray and segment are parallel.
     const t = (ray.x * start.y - ray.y * start.x) / denom;
     const s = (delta.x * start.y - delta.y * start.x) / denom;
-    if (t < 0 || 1 < t || s < 0) return undefined;  // Ray doesn't point towards segment.
-    return start.clone().multiplyScalar(1 - t).addScaledVector(end, t);
+    if (t < 0 || 1 < t || s < 0) return undefined; // Ray doesn't point towards segment.
+    return start
+        .clone()
+        .multiplyScalar(1 - t)
+        .addScaledVector(end, t);
 }
